@@ -5,7 +5,12 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import pickle, os, shap, warnings
+import pickle, os, warnings
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
 warnings.filterwarnings("ignore")
 
 plt.rcParams.update({
@@ -483,6 +488,8 @@ def predict(vec_raw):
 
 @st.cache_data(show_spinner=False)
 def compute_shap(vec_w_tuple):
+    if not SHAP_AVAILABLE:
+        return None, None
     vec_w = np.array(vec_w_tuple).reshape(1, -1)
     bg    = shap.sample(X_train, min(30, len(X_train)))
     def predict_pm(X):
@@ -937,10 +944,14 @@ st.pyplot(_fig_cb, use_container_width=True)
 plt.close(_fig_cb)
 
 # ── Executive Summary ─────────────────────────────────────────────────────────
-with st.spinner("Computing SHAP values…"):
-    sv_pm, base_pm = compute_shap(tuple(vec_w.ravel().tolist()))
+if SHAP_AVAILABLE:
+    with st.spinner("Computing SHAP values…"):
+        sv_pm, base_pm = compute_shap(tuple(vec_w.ravel().tolist()))
+    top_pos_feats = [FEATURES[i] for i in np.argsort(sv_pm)[::-1] if sv_pm[i] > 0]
+else:
+    sv_pm, base_pm = None, None
+    top_pos_feats = []
 
-top_pos_feats = [FEATURES[i] for i in np.argsort(sv_pm)[::-1] if sv_pm[i] > 0]
 wi_results    = whatif(vec_raw, effort, ratings)
 top_driver    = top_pos_feats[0] if top_pos_feats else "project size"
 top_saver     = wi_results[0]["feature"] if wi_results else None
@@ -959,16 +970,19 @@ st.markdown(f"""
 # ── SHAP tabs ─────────────────────────────────────────────────────────────────
 st.markdown("<div class='section-header'>Explainability</div>", unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["Feature Contributions", "FAHP vs SHAP", "Waterfall"])
-with tab1:
-    _fig_bar = plot_shap_bar(sv_pm, effort)
-    st.pyplot(_fig_bar, use_container_width=True); plt.close(_fig_bar)
-with tab2:
-    _fig_fvs = plot_fahp_vs_shap(sv_pm)
-    st.pyplot(_fig_fvs, use_container_width=True); plt.close(_fig_fvs)
-with tab3:
-    _fig_wf = plot_waterfall(sv_pm, base_pm, effort)
-    st.pyplot(_fig_wf, use_container_width=True); plt.close(_fig_wf)
+if not SHAP_AVAILABLE:
+    st.info("SHAP explainability is not available in this deployment environment. All other features work normally.", icon="ℹ️")
+else:
+    tab1, tab2, tab3 = st.tabs(["Feature Contributions", "FAHP vs SHAP", "Waterfall"])
+    with tab1:
+        _fig_bar = plot_shap_bar(sv_pm, effort)
+        st.pyplot(_fig_bar, use_container_width=True); plt.close(_fig_bar)
+    with tab2:
+        _fig_fvs = plot_fahp_vs_shap(sv_pm)
+        st.pyplot(_fig_fvs, use_container_width=True); plt.close(_fig_fvs)
+    with tab3:
+        _fig_wf = plot_waterfall(sv_pm, base_pm, effort)
+        st.pyplot(_fig_wf, use_container_width=True); plt.close(_fig_wf)
 
 # ── Insights ──────────────────────────────────────────────────────────────────
 st.markdown("<div class='section-header'>Key Insights</div>", unsafe_allow_html=True)
