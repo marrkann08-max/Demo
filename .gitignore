@@ -1,13 +1,13 @@
 .venv/
+.venv/**
 __pycache__/
 *.pyc
+*.pyo
 .env
+.env/
 .DS_Store
 .ipynb_checkpoints/
-.venv/
-.venv/**
 .vscode/
-.env/
 *.log
 node_modules/
-.venv/
+.streamlit/secrets.toml

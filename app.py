@@ -396,8 +396,19 @@ def load_model(mtime: float):
         return pickle.load(f)
 
 _model_path = os.path.join(os.path.dirname(__file__), "model.pkl")
-_mtime      = os.path.getmtime(_model_path)
-art      = load_model(_mtime)
+if not os.path.exists(_model_path):
+    st.error(
+        "**model.pkl not found.** Run `python train_model.py` to generate it, "
+        "then restart the app.",
+        icon="🚨",
+    )
+    st.stop()
+_mtime = os.path.getmtime(_model_path)
+try:
+    art = load_model(_mtime)
+except Exception as _e:
+    st.error(f"**Failed to load model.pkl:** {_e}\n\nTry re-running `python train_model.py`.", icon="🚨")
+    st.stop()
 model    = art["model"]
 scaler_X = art["scaler_X"]
 scaler_y = art["scaler_y"]
@@ -920,8 +931,10 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 # ── Confidence band ────────────────────────────────────────────────────────────
 st.markdown("<div class='section-header'>80% Prediction Interval &nbsp;·&nbsp; empirical, Leave-One-Out</div>", unsafe_allow_html=True)
-st.pyplot(plot_confidence_band(effort, PI_LO, PI_HI,
-         ai_effort=ai_effort if ai_using else None), use_container_width=True)
+_fig_cb = plot_confidence_band(effort, PI_LO, PI_HI,
+          ai_effort=ai_effort if ai_using else None)
+st.pyplot(_fig_cb, use_container_width=True)
+plt.close(_fig_cb)
 
 # ── Executive Summary ─────────────────────────────────────────────────────────
 with st.spinner("Computing SHAP values…"):
@@ -948,11 +961,14 @@ st.markdown("<div class='section-header'>Explainability</div>", unsafe_allow_htm
 
 tab1, tab2, tab3 = st.tabs(["Feature Contributions", "FAHP vs SHAP", "Waterfall"])
 with tab1:
-    st.pyplot(plot_shap_bar(sv_pm, effort), use_container_width=True)
+    _fig_bar = plot_shap_bar(sv_pm, effort)
+    st.pyplot(_fig_bar, use_container_width=True); plt.close(_fig_bar)
 with tab2:
-    st.pyplot(plot_fahp_vs_shap(sv_pm), use_container_width=True)
+    _fig_fvs = plot_fahp_vs_shap(sv_pm)
+    st.pyplot(_fig_fvs, use_container_width=True); plt.close(_fig_fvs)
 with tab3:
-    st.pyplot(plot_waterfall(sv_pm, base_pm, effort), use_container_width=True)
+    _fig_wf = plot_waterfall(sv_pm, base_pm, effort)
+    st.pyplot(_fig_wf, use_container_width=True); plt.close(_fig_wf)
 
 # ── Insights ──────────────────────────────────────────────────────────────────
 st.markdown("<div class='section-header'>Key Insights</div>", unsafe_allow_html=True)
@@ -1061,8 +1077,8 @@ st.markdown("<div class='section-header'>GenAI Impact Analysis</div>", unsafe_al
 if ai_using:
     ga1, ga2 = st.columns([1.5, 1])
     with ga1:
-        st.pyplot(plot_ai_comparison(effort, ai_effort, ai_effort_lo, ai_effort_hi, ai_short),
-                  use_container_width=True)
+        _fig_ai = plot_ai_comparison(effort, ai_effort, ai_effort_lo, ai_effort_hi, ai_short)
+        st.pyplot(_fig_ai, use_container_width=True); plt.close(_fig_ai)
     with ga2:
         ai_pct_lo = (1 - ai_mult_hi) * 100
         ai_pct_hi = (1 - ai_mult_lo) * 100
@@ -1142,7 +1158,7 @@ with st.expander("Methodology — how this works", expanded=False):
 # FOOTER
 # ─────────────────────────────────────────────────────────────────────────────
 n_81_val = art.get("n_cocomo81", 63)
-n_93_val = art.get("n_nasa93", 93)
+n_93_val = art.get("n_nasa93", 0)
 mmre_val = art.get("loo_mmre", 0.0)
 st.markdown(f"""
 <div class='app-footer'>
