@@ -940,7 +940,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("<div class='section-header'>80% Prediction Interval &nbsp;·&nbsp; empirical, Leave-One-Out</div>", unsafe_allow_html=True)
 _fig_cb = plot_confidence_band(effort, PI_LO, PI_HI,
           ai_effort=ai_effort if ai_using else None)
-st.pyplot(_fig_cb, use_container_width=True)
+_ = st.pyplot(_fig_cb, use_container_width=True)
 plt.close(_fig_cb)
 
 # ── Executive Summary ─────────────────────────────────────────────────────────
@@ -976,13 +976,13 @@ else:
     tab1, tab2, tab3 = st.tabs(["Feature Contributions", "FAHP vs SHAP", "Waterfall"])
     with tab1:
         _fig_bar = plot_shap_bar(sv_pm, effort)
-        st.pyplot(_fig_bar, use_container_width=True); plt.close(_fig_bar)
+        _ = st.pyplot(_fig_bar, use_container_width=True); plt.close(_fig_bar)
     with tab2:
         _fig_fvs = plot_fahp_vs_shap(sv_pm)
-        st.pyplot(_fig_fvs, use_container_width=True); plt.close(_fig_fvs)
+        _ = st.pyplot(_fig_fvs, use_container_width=True); plt.close(_fig_fvs)
     with tab3:
         _fig_wf = plot_waterfall(sv_pm, base_pm, effort)
-        st.pyplot(_fig_wf, use_container_width=True); plt.close(_fig_wf)
+        _ = st.pyplot(_fig_wf, use_container_width=True); plt.close(_fig_wf)
 
 # ── Insights ──────────────────────────────────────────────────────────────────
 st.markdown("<div class='section-header'>Key Insights</div>", unsafe_allow_html=True)
@@ -1098,7 +1098,7 @@ if ai_using:
     ga1, ga2 = st.columns([1.5, 1])
     with ga1:
         _fig_ai = plot_ai_comparison(effort, ai_effort, ai_effort_lo, ai_effort_hi, ai_short)
-        st.pyplot(_fig_ai, use_container_width=True); plt.close(_fig_ai)
+        _ = st.pyplot(_fig_ai, use_container_width=True); plt.close(_fig_ai)
     with ga2:
         ai_pct_lo = (1 - ai_mult_hi) * 100
         ai_pct_hi = (1 - ai_mult_lo) * 100
