@@ -986,8 +986,11 @@ else:
 
 # ── Insights ──────────────────────────────────────────────────────────────────
 st.markdown("<div class='section-header'>Key Insights</div>", unsafe_allow_html=True)
-top_pos = [(FEATURES[i], sv_pm[i]) for i in np.argsort(sv_pm)[::-1] if sv_pm[i] > 0][:3]
-top_neg = [(FEATURES[i], sv_pm[i]) for i in np.argsort(sv_pm)       if sv_pm[i] < 0][:2]
+if sv_pm is not None:
+    top_pos = [(FEATURES[i], sv_pm[i]) for i in np.argsort(sv_pm)[::-1] if sv_pm[i] > 0][:3]
+    top_neg = [(FEATURES[i], sv_pm[i]) for i in np.argsort(sv_pm)       if sv_pm[i] < 0][:2]
+else:
+    top_pos, top_neg = [], []
 
 def _rating_tag(feat):
     """Return a short human-readable tag showing the current setting for a feature."""
@@ -1028,36 +1031,39 @@ st.markdown("""<div class='explain-note'>
     </div>
 </div>""", unsafe_allow_html=True)
 f3 = np.argsort(fahp_w)[::-1][:3]
-s3 = np.argsort(np.abs(sv_pm))[::-1][:3]
-agree = len(set(f3) & set(s3)) / 3 * 100
-colour = "#2E7D32" if agree >= 67 else ("#BF6000" if agree >= 33 else "#C62828")
-label_agree = "Strong agreement" if agree >= 67 else ("Partial" if agree >= 33 else "Disagreement")
-ac1, ac2 = st.columns([2.5, 1])
-with ac1:
-    def _match_badge(i):
-        if f3[i] == s3[i]:
-            return "<span class='match-badge match-aligned'>Aligned</span>"
-        elif f3[i] in s3:
-            return "<span class='match-badge match-partial'>Partial</span>"
-        else:
-            return "<span class='match-badge match-divergent'>Divergent</span>"
-    rows_html = "".join(
-        f"<tr><td>#{i+1}</td><td>{FEATURES[f3[i]]}</td><td>{FEATURES[s3[i]]}</td><td>{_match_badge(i)}</td></tr>"
-        for i in range(3)
-    )
-    st.markdown(f"""
-    <table class='data-table'>
-      <thead><tr>
-        <th>Rank</th><th>FAHP Prior</th><th>SHAP Posterior</th><th>Match</th>
-      </tr></thead>
-      <tbody>{rows_html}</tbody>
-    </table>""", unsafe_allow_html=True)
-with ac2:
-    st.markdown(f"""<div class='metric-card' style='border-color:{colour};'>
-        <div class='metric-label'>Alignment Score</div>
-        <div class='metric-value' style='color:{colour};'>{agree:.0f}%</div>
-        <div class='metric-unit'>{label_agree}</div>
-    </div>""", unsafe_allow_html=True)
+if sv_pm is not None:
+    s3 = np.argsort(np.abs(sv_pm))[::-1][:3]
+    agree = len(set(f3) & set(s3)) / 3 * 100
+    colour = "#2E7D32" if agree >= 67 else ("#BF6000" if agree >= 33 else "#C62828")
+    label_agree = "Strong agreement" if agree >= 67 else ("Partial" if agree >= 33 else "Disagreement")
+    ac1, ac2 = st.columns([2.5, 1])
+    with ac1:
+        def _match_badge(i):
+            if f3[i] == s3[i]:
+                return "<span class='match-badge match-aligned'>Aligned</span>"
+            elif f3[i] in s3:
+                return "<span class='match-badge match-partial'>Partial</span>"
+            else:
+                return "<span class='match-badge match-divergent'>Divergent</span>"
+        rows_html = "".join(
+            f"<tr><td>#{i+1}</td><td>{FEATURES[f3[i]]}</td><td>{FEATURES[s3[i]]}</td><td>{_match_badge(i)}</td></tr>"
+            for i in range(3)
+        )
+        st.markdown(f"""
+        <table class='data-table'>
+          <thead><tr>
+            <th>Rank</th><th>FAHP Prior</th><th>SHAP Posterior</th><th>Match</th>
+          </tr></thead>
+          <tbody>{rows_html}</tbody>
+        </table>""", unsafe_allow_html=True)
+    with ac2:
+        st.markdown(f"""<div class='metric-card' style='border-color:{colour};'>
+            <div class='metric-label'>Alignment Score</div>
+            <div class='metric-value' style='color:{colour};'>{agree:.0f}%</div>
+            <div class='metric-unit'>{label_agree}</div>
+        </div>""", unsafe_allow_html=True)
+else:
+    st.info("FAHP vs SHAP alignment requires SHAP explainability, which is not available in this environment.", icon="ℹ️")
 
 # ── What-if ────────────────────────────────────────────────────────────────────
 st.markdown("<div class='section-header'>What-If Analysis — Reduction Opportunities</div>", unsafe_allow_html=True)
