@@ -8,107 +8,406 @@ import matplotlib.patches as mpatches
 import pickle, os, shap, warnings
 warnings.filterwarnings("ignore")
 
+plt.rcParams.update({
+    "font.family":        ["Inter", "Helvetica Neue", "Arial", "sans-serif"],
+    "font.size":          9,
+    "axes.spines.top":    False,
+    "axes.spines.right":  False,
+    "axes.spines.left":   False,
+    "axes.spines.bottom": True,
+    "axes.edgecolor":     "#DCDCDC",
+    "axes.linewidth":     0.8,
+    "axes.grid":          True,
+    "axes.axisbelow":     True,
+    "grid.color":         "#F0F0F0",
+    "grid.linewidth":     0.7,
+    "xtick.color":        "#999999",
+    "ytick.color":        "#999999",
+    "xtick.major.size":   3,
+    "ytick.major.size":   0,
+    "text.color":         "#333333",
+    "figure.facecolor":   "white",
+    "axes.facecolor":     "white",
+    "legend.frameon":     False,
+    "legend.fontsize":    8,
+})
+
 st.set_page_config(
     page_title="Software Effort Estimator",
-    page_icon="📐",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
-html,body,[class*="css"]{font-family:'IBM Plex Sans',sans-serif;}
-h1,h2,h3{font-family:'IBM Plex Mono',monospace;}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-/* Sidebar styling - minimal and safe */
+html, body, [class*="css"] {
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "cv02","cv03","cv04","cv11";
+}
+.main { background: #F3F3F3; }
+.main .block-container { padding: 2rem 2.5rem 4rem; max-width: 1400px; }
+
+/* Sidebar */
 section[data-testid="stSidebar"] {
-    background: #0d1117 !important;
+    background: #0F0F0F !important;
+    border-right: 1px solid #1E1E1E !important;
 }
-section[data-testid="stSidebar"] > div {
-    background: #0d1117 !important;
-}
-section[data-testid="stSidebar"] .stMarkdown p,
-section[data-testid="stSidebar"] .stMarkdown h1,
-section[data-testid="stSidebar"] .stMarkdown h2,
-section[data-testid="stSidebar"] .stMarkdown h3 {
-    color: #e6edf3 !important;
-}
+section[data-testid="stSidebar"] > div { background: #0F0F0F !important; }
+
+/* All text in sidebar */
+section[data-testid="stSidebar"] * { color: #CCCCCC; }
+
+/* Labels on sliders and selects */
+section[data-testid="stSidebar"] label,
 section[data-testid="stSidebar"] .stSelectbox label,
 section[data-testid="stSidebar"] .stSlider label {
-    color: #8b949e !important;
-    font-size: 0.75rem !important;
-    letter-spacing: 0.08em !important;
-    text-transform: uppercase;
+    color: #BBBBBB !important; font-size: 0.78rem !important;
+    letter-spacing: 0.05em !important; text-transform: uppercase !important;
+    font-weight: 500 !important;
 }
 
-.main .block-container{padding:1.8rem 2.5rem 2rem 2.5rem;max-width:1400px;}
-.main{background:#f6f8fa;}
+/* Selectbox input */
+section[data-testid="stSidebar"] [data-baseweb="select"] > div:first-child {
+    background: #1C1C1C !important; border-color: #383838 !important;
+}
+section[data-testid="stSidebar"] [data-baseweb="select"] span {
+    color: #DDDDDD !important;
+}
 
-.hero{background:linear-gradient(135deg,#0d1117 0%,#161b22 100%);
-    border-radius:12px;padding:2rem 2.5rem;margin-bottom:1.5rem;
-    border:1px solid #21262d;}
-.hero-title{font-family:'IBM Plex Mono',monospace;font-size:1.5rem;
-    font-weight:600;color:#e6edf3;margin:0 0 0.4rem 0;}
-.hero-sub{font-size:0.85rem;color:#8b949e;margin:0;line-height:1.6;}
-.hero-badge{display:inline-block;background:#1f6feb22;border:1px solid #1f6feb55;
-    color:#58a6ff;font-family:'IBM Plex Mono',monospace;font-size:0.7rem;
-    padding:0.2rem 0.6rem;border-radius:20px;margin-right:0.4rem;margin-top:0.5rem;}
-.hero-badge-green{background:#23863622;border-color:#23863655;color:#3fb950;}
-.hero-badge-orange{background:#bb800922;border-color:#bb800955;color:#e3b341;}
+/* Expander headers — target both old and new Streamlit selectors */
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary,
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary p,
+section[data-testid="stSidebar"] details summary,
+section[data-testid="stSidebar"] details summary p,
+section[data-testid="stSidebar"] .streamlit-expanderHeader,
+section[data-testid="stSidebar"] .streamlit-expanderHeader p {
+    color: #CCCCCC !important; font-size: 0.8rem !important;
+    font-weight: 600 !important; letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+}
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover,
+section[data-testid="stSidebar"] details summary:hover {
+    color: #FFFFFF !important;
+}
+section[data-testid="stSidebar"] [data-testid="stExpander"] {
+    border-bottom: 1px solid #2A2A2A !important;
+    background: transparent !important;
+}
 
-.metric-card{background:white;border:1px solid #d0d7de;border-radius:10px;
-    padding:1.25rem 1.5rem;box-shadow:0 1px 4px rgba(0,0,0,.06);height:100%;}
-.metric-label{font-family:'IBM Plex Mono',monospace;font-size:0.68rem;
-    color:#57606a;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.4rem;}
-.metric-value{font-family:'IBM Plex Mono',monospace;font-size:2.1rem;
-    font-weight:600;color:#0969da;line-height:1;}
-.metric-unit{font-family:'IBM Plex Sans',sans-serif;font-size:0.8rem;
-    color:#8c959f;margin-top:0.3rem;}
+/* Slider value text */
+section[data-testid="stSidebar"] [data-testid="stSlider"] p,
+section[data-testid="stSidebar"] .stSlider p {
+    color: #AAAAAA !important; font-size: 0.74rem !important;
+}
+.sb-section {
+    font-size: 0.72rem; color: #888888; letter-spacing: 0.08em;
+    text-transform: uppercase; font-weight: 600; margin: 0.9rem 0 0.3rem 0;
+}
+.sb-ai-source {
+    font-family: "JetBrains Mono", monospace; font-size: 0.66rem; color: #666666;
+    margin-bottom: 0.55rem; padding: 0.18rem 0.4rem;
+    background: rgba(255,255,255,0.025); border: 1px solid #242424;
+    border-radius: 3px; display: inline-block;
+}
 
-.section-header{font-family:'IBM Plex Mono',monospace;font-size:0.72rem;
-    letter-spacing:0.14em;text-transform:uppercase;color:#57606a;
-    border-bottom:2px solid #0969da;padding-bottom:0.35rem;margin:2rem 0 1rem 0;}
+/* Page header */
+.page-header {
+    margin-bottom: 1.75rem; padding-bottom: 1.25rem; border-bottom: 1px solid #E2E2E2;
+}
+.page-title {
+    font-size: 1.15rem; font-weight: 650; color: #111111;
+    letter-spacing: -0.02em; margin: 0 0 0.2rem 0;
+}
+.page-subtitle { font-size: 0.79rem; color: #666666; margin: 0 0 0.65rem 0; }
+.stat-pill {
+    display: inline-flex; align-items: center;
+    background: #FFFFFF; border: 1px solid #E2E2E2; border-radius: 4px;
+    padding: 0.13rem 0.48rem;
+    font-family: "JetBrains Mono", monospace; font-size: 0.66rem; color: #555555;
+    margin-right: 0.28rem;
+}
+.stat-pill-blue {
+    display: inline-flex; align-items: center;
+    background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 4px;
+    padding: 0.13rem 0.52rem;
+    font-family: "JetBrains Mono", monospace; font-size: 0.66rem; color: #1D4ED8;
+    margin-right: 0.28rem; font-weight: 600;
+}
+.stat-pill-green {
+    display: inline-flex; align-items: center;
+    background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 4px;
+    padding: 0.13rem 0.52rem;
+    font-family: "JetBrains Mono", monospace; font-size: 0.66rem; color: #15803D;
+    margin-right: 0.28rem; font-weight: 600;
+}
+.stat-pill-dark {
+    display: inline-flex; align-items: center;
+    background: #1C1C1C; border: 1px solid #333333; border-radius: 4px;
+    padding: 0.13rem 0.52rem;
+    font-family: "JetBrains Mono", monospace; font-size: 0.66rem; color: #AAAAAA;
+    margin-right: 0.28rem;
+}
 
-.insight-box{border-left:3px solid #0969da;background:#ddf4ff;
-    padding:0.7rem 1rem;border-radius:0 6px 6px 0;
-    margin:0.4rem 0;font-size:0.86rem;color:#0550ae;line-height:1.5;}
-.insight-up{border-left-color:#d1242f;background:#fff0eb;color:#6e2000;}
-.insight-down{border-left-color:#1a7f37;background:#dafbe1;color:#0d4a1f;}
-.insight-note{border-left-color:#9a6700;background:#fff8c5;
-    padding:0.7rem 1rem;border-radius:0 6px 6px 0;
-    margin:0.4rem 0;font-size:0.82rem;color:#7d4e00;line-height:1.5;}
+/* Metric cards */
+.metric-card {
+    background: #FFFFFF; border: 1px solid #E2E2E2; border-radius: 10px;
+    padding: 1.2rem 1.4rem; height: 100%;
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+.metric-card:hover {
+    border-color: #C8C8C8; box-shadow: 0 2px 14px rgba(0,0,0,0.07);
+}
+.metric-label {
+    font-size: 0.68rem; color: #666666; letter-spacing: 0.07em;
+    text-transform: uppercase; font-weight: 600; margin-bottom: 0.5rem;
+}
+.metric-value {
+    font-family: "JetBrains Mono", monospace; font-size: 2.6rem; font-weight: 600;
+    color: #111111; line-height: 1; letter-spacing: -0.03em;
+}
+.metric-unit { font-size: 0.78rem; color: #888888; margin-top: 0.28rem; }
+.metric-range {
+    font-family: "JetBrains Mono", monospace; font-size: 0.68rem; color: #888888;
+    margin-top: 0.42rem; padding-top: 0.42rem; border-top: 1px solid #F0F0F0;
+}
+.risk-low  { color: #2E7D32 !important; }
+.risk-med  { color: #BF6000 !important; }
+.risk-high { color: #C62828 !important; }
 
-.pipeline-box{background:white;border:1px solid #d0d7de;border-radius:10px;
-    padding:1.5rem 2rem;margin-bottom:1rem;}
-.pipeline-step{display:flex;align-items:flex-start;margin-bottom:1.2rem;}
-.step-num{background:#0969da;color:white;border-radius:50%;width:26px;height:26px;
-    display:flex;align-items:center;justify-content:center;
-    font-family:'IBM Plex Mono',monospace;font-size:0.75rem;font-weight:600;
-    flex-shrink:0;margin-right:1rem;margin-top:0.1rem;}
-.step-title{font-family:'IBM Plex Mono',monospace;font-size:0.85rem;
-    font-weight:600;color:#0969da;margin-bottom:0.2rem;}
-.step-desc{font-size:0.83rem;color:#57606a;line-height:1.55;}
+/* Exec summary */
+.exec-summary {
+    background: #FFFFFF; border: 1px solid #E2E2E2; border-left: 2px solid #111111;
+    border-radius: 0 6px 6px 0; padding: 0.9rem 1.1rem; margin: 0.75rem 0 1.25rem 0;
+}
+.exec-summary-label {
+    font-size: 0.64rem; letter-spacing: 0.1em; text-transform: uppercase;
+    font-weight: 600; color: #AAAAAA; margin-bottom: 0.42rem;
+}
+.exec-summary-text { font-size: 0.875rem; color: #222222; line-height: 1.75; }
 
-#MainMenu, footer {visibility:hidden;}
+/* Section headers */
+.section-header {
+    font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase;
+    font-weight: 700; color: #555555; margin: 2rem 0 0.8rem 0;
+    display: flex; align-items: center; gap: 0.6rem;
+}
+.section-header::after { content: ""; flex: 1; height: 1px; background: #EBEBEB; }
+
+/* Insight boxes */
+.insight-box {
+    border-left: 2px solid #DDDDDD; background: #FAFAFA; padding: 0.55rem 0.8rem;
+    border-radius: 0 4px 4px 0; margin: 0.28rem 0;
+    font-size: 0.83rem; color: #1A1A1A; line-height: 1.55;
+}
+.insight-up   { border-left-color: #D97070; }
+.insight-down { border-left-color: #5FAD6E; }
+.insight-note {
+    border-left: 2px solid #DDDDDD; background: #FAFAFA; padding: 0.58rem 0.8rem;
+    border-radius: 0 4px 4px 0; margin: 0.28rem 0;
+    font-size: 0.79rem; color: #555555; line-height: 1.65;
+}
+
+/* Pipeline */
+.pipeline-box {
+    background: #FFFFFF; border: 1px solid #E2E2E2;
+    border-radius: 8px; padding: 1.3rem 1.5rem;
+}
+.pipeline-step { display: flex; align-items: flex-start; margin-bottom: 1.1rem; }
+.step-circle {
+    display: flex; align-items: center; justify-content: center;
+    width: 1.7rem; height: 1.7rem; border-radius: 50%;
+    background: #2563EB; color: #FFFFFF;
+    font-family: "JetBrains Mono", monospace; font-size: 0.72rem; font-weight: 700;
+    min-width: 1.7rem; margin-right: 0.9rem; margin-top: 0.06rem; flex-shrink: 0;
+}
+.step-title { font-size: 0.84rem; font-weight: 600; color: #2563EB; margin-bottom: 0.18rem; }
+.step-desc { font-size: 0.78rem; color: #555555; line-height: 1.65; }
+.step-caveat {
+    font-size: 0.72rem; color: #999999; line-height: 1.55;
+    margin-top: 0.3rem; padding-top: 0.3rem;
+    border-top: 1px dashed #EBEBEB; font-style: italic;
+}
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0; background: #EFEFEF; border-radius: 6px; padding: 2px; width: fit-content;
+}
+.stTabs [data-baseweb="tab"] {
+    border-radius: 5px; padding: 0.3rem 0.85rem; font-size: 0.77rem; font-weight: 500;
+    color: #888888; background: transparent; border: none;
+    transition: background 140ms ease, color 140ms ease;
+}
+.stTabs [aria-selected="true"] {
+    background: #FFFFFF !important; color: #111111 !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+/* Button */
+.stButton > button[kind="primary"] {
+    background: #DC2626 !important; border: none !important;
+    color: #FFFFFF !important; font-weight: 600 !important; font-size: 0.88rem !important;
+    border-radius: 6px !important; padding: 0.6rem 1rem !important;
+    letter-spacing: 0.02em !important; transition: background 140ms ease !important;
+    text-transform: uppercase !important;
+}
+.stButton > button[kind="primary"]:hover { background: #B91C1C !important; }
+
+
+/* ── Data tables ─────────────────────────────────────────────────────────── */
+.data-table {
+    width: 100%; border-collapse: collapse; font-size: 0.8rem;
+    font-family: "Inter", sans-serif; margin: 0;
+}
+.data-table thead tr {
+    background: #F7F7F7; border-bottom: 1px solid #E2E2E2;
+}
+.data-table thead th {
+    padding: 0.42rem 0.75rem; text-align: left; font-size: 0.66rem;
+    font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+    color: #777777; white-space: nowrap;
+}
+.data-table tbody tr {
+    border-bottom: 1px solid #F0F0F0;
+    transition: background 120ms ease;
+}
+.data-table tbody tr:hover { background: #F7F7F7; }
+.data-table tbody td {
+    padding: 0.52rem 0.75rem; color: #1A1A1A; vertical-align: middle;
+    font-size: 0.82rem;
+}
+.data-table tbody td:first-child { color: #1A1A1A; font-size: 0.82rem; }
+
+/* Match badges */
+.match-badge {
+    display: inline-block; padding: 0.12rem 0.5rem; border-radius: 3px;
+    font-size: 0.69rem; font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; white-space: nowrap;
+}
+.match-aligned  { background: #E8F5E9; color: #2E7D32; }
+.match-partial  { background: #FFF8E1; color: #BF6000; }
+.match-divergent{ background: #FFEBEE; color: #C62828; }
+
+/* Explain note */
+.explain-note {
+    background: #FFFFFF; border: 1px solid #E2E2E2;
+    border-left: 2px solid #AAAAAA; border-radius: 0 6px 6px 0;
+    padding: 0.65rem 0.9rem; margin: 0.5rem 0 0.9rem 0;
+}
+.explain-label {
+    font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase;
+    font-weight: 600; color: #AAAAAA; margin-bottom: 0.32rem;
+}
+.explain-text { font-size: 0.8rem; color: #444444; line-height: 1.65; }
+
+/* What-if callout */
+.wi-callout {
+    background: #F0F7FF; border: 1px solid #C8DCF5; border-radius: 6px;
+    padding: 0.65rem 0.9rem; margin-top: 0.6rem;
+    font-size: 0.81rem; color: #1A3A5C; line-height: 1.6;
+}
+
+/* Footer */
+.app-footer {
+    margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid #E2E2E2;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 0.5rem;
+}
+.footer-left  { font-size: 0.71rem; color: #AAAAAA; line-height: 1.7; }
+.footer-right {
+    font-family: "JetBrains Mono", monospace; font-size: 0.65rem; color: #CCCCCC;
+    background: #F7F7F7; border: 1px solid #E8E8E8; border-radius: 4px;
+    padding: 0.18rem 0.5rem;
+}
+
+#MainMenu, footer { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
 
+DARK_CSS = """
+<style>
+.stApp, section.main, .main { background: #111111 !important; }
+.main .block-container { background: #111111 !important; }
+.page-header { border-bottom-color: #2A2A2A !important; }
+.page-title  { color: #EEEEEE !important; }
+.page-subtitle { color: #888888 !important; }
+.stat-pill      { background: #1E1E1E !important; border-color: #333 !important; color: #AAAAAA !important; }
+.stat-pill-blue { background: #0F1E33 !important; border-color: #1E3A5F !important; color: #5B9BD5 !important; }
+.stat-pill-green{ background: #0D2218 !important; border-color: #1A4A25 !important; color: #4CAF72 !important; }
+.stat-pill-dark { background: #1A1A1A !important; border-color: #2A2A2A !important; color: #AAAAAA !important; }
+.metric-card    { background: #1A1A1A !important; border-color: #2A2A2A !important; }
+.metric-card:hover { border-color: #3A3A3A !important; box-shadow: 0 2px 14px rgba(0,0,0,0.4) !important; }
+.metric-value   { color: #EEEEEE !important; }
+.metric-label   { color: #888888 !important; }
+.metric-unit    { color: #666666 !important; }
+.metric-range   { color: #666666 !important; border-top-color: #2A2A2A !important; }
+.risk-low  { color: #4CAF72 !important; }
+.risk-med  { color: #D4A04A !important; }
+.risk-high { color: #E57373 !important; }
+.exec-summary { background: #1A1A1A !important; border-color: #2A2A2A !important; border-left-color: #EEEEEE !important; }
+.exec-summary-label { color: #666 !important; }
+.exec-summary-text  { color: #CCCCCC !important; }
+.section-header { color: #777777 !important; }
+.section-header::after { background: #2A2A2A !important; }
+.insight-box   { background: #1A1A1A !important; color: #DDDDDD !important; }
+.insight-up    { border-left-color: #8B3A3A !important; }
+.insight-down  { border-left-color: #2D6A3F !important; }
+.insight-note  { background: #1A1A1A !important; color: #BBBBBB !important; }
+.data-table thead tr   { background: #1E1E1E !important; border-color: #333 !important; }
+.data-table thead th   { color: #777 !important; }
+.data-table tbody tr   { border-bottom-color: #222 !important; }
+.data-table tbody tr:hover { background: #1E1E1E !important; }
+.data-table tbody td   { color: #DDDDDD !important; }
+.match-aligned   { background: #0D2218 !important; color: #4CAF72 !important; }
+.match-partial   { background: #1E1600 !important; color: #D4A04A !important; }
+.match-divergent { background: #1E0D0D !important; color: #E57373 !important; }
+.explain-note  { background: #1A1A1A !important; border-color: #2A2A2A !important; }
+.explain-label { color: #666 !important; }
+.explain-text  { color: #CCCCCC !important; }
+.wi-callout    { background: #0F1E33 !important; border-color: #1E3A5F !important; color: #8BB8D8 !important; }
+.pipeline-box  { background: #1A1A1A !important; border-color: #2A2A2A !important; }
+.step-desc     { color: #AAAAAA !important; }
+.step-caveat   { color: #666 !important; }
+.app-footer    { border-top-color: #2A2A2A !important; }
+.footer-left   { color: #555 !important; }
+.footer-right  { background: #1A1A1A !important; border-color: #2A2A2A !important; color: #666 !important; }
+/* Streamlit native elements */
+.stTabs [data-baseweb="tab-list"] { background: #1E1E1E !important; }
+.stTabs [data-baseweb="tab"]      { color: #777 !important; }
+.stTabs [aria-selected="true"]    { background: #2A2A2A !important; color: #EEEEEE !important; }
+[data-testid="stExpander"]        { background: #1A1A1A !important; border-color: #2A2A2A !important; }
+[data-testid="stExpander"] summary p { color: #CCCCCC !important; }
+</style>
+"""
+
+if st.session_state.get("dark_mode", False):
+    st.markdown(DARK_CSS, unsafe_allow_html=True)
+
 # ── Load model ──────────────────────────────────────────────────────────────
-@st.cache_resource
-def load_model():
+# Cache key includes file mtime → cache auto-busts whenever model.pkl is retrained
+@st.cache_data(show_spinner=False)
+def load_model(mtime: float):
     path = os.path.join(os.path.dirname(__file__), "model.pkl")
     with open(path, "rb") as f:
         return pickle.load(f)
 
-art      = load_model()
+_model_path = os.path.join(os.path.dirname(__file__), "model.pkl")
+_mtime      = os.path.getmtime(_model_path)
+art      = load_model(_mtime)
 model    = art["model"]
 scaler_X = art["scaler_X"]
 scaler_y = art["scaler_y"]
 fahp_w   = art["fahp_weights"]
 kernel_w = art.get("kernel_w", np.sqrt(fahp_w))
 X_train  = art["X_train"]
+PI_LO    = art.get("pi_lo_pct", -0.46)   # 10th pct signed relative error
+PI_HI    = art.get("pi_hi_pct",  0.56)   # 90th pct signed relative error
+N_81     = art.get("n_cocomo81", 63)
+N_93     = art.get("n_nasa93",   0)
 
 FEATURES = [
     "LOC (KLOC)", "RELY", "DATA", "CPLX", "TIME", "STOR",
@@ -135,6 +434,7 @@ FEAT_DESC = {
 }
 RATING_LABELS = ["Very Low", "Low", "Nominal", "High", "Very High"]
 RATING_MAP    = {lbl: i for i, lbl in enumerate(RATING_LABELS)}
+# 5 levels: vl / l / n / h / vh  — Boehm (1981) Table 8-1
 COCOMO_MULT   = {
     "RELY": [0.75, 0.88, 1.00, 1.15, 1.40],
     "DATA": [0.94, 0.94, 1.00, 1.08, 1.16],
@@ -171,8 +471,8 @@ def predict(vec_raw):
     return max(float(np.expm1(pl)), 1.0), vw
 
 @st.cache_data(show_spinner=False)
-def compute_shap(_vec_w_tuple):
-    vec_w = np.array(_vec_w_tuple).reshape(1, -1)
+def compute_shap(vec_w_tuple):
+    vec_w = np.array(vec_w_tuple).reshape(1, -1)
     bg    = shap.sample(X_train, min(30, len(X_train)))
     def predict_pm(X):
         ps  = model.predict(X)
@@ -183,34 +483,84 @@ def compute_shap(_vec_w_tuple):
     return sv[0], float(exp.expected_value)
 
 
+# ── Risk classification ───────────────────────────────────────────────────────
+def classify_risk(effort, eaf, loc):
+    """
+    Risk scoring: effort size (0-2) + EAF pressure (−1 to +2) + LOC size (0-2).
+    EAF < 0.90 actively reduces risk (favorable team/tools); EAF > 1.15 raises it.
+    """
+    score = 0
+    # Effort dimension
+    if effort > 300:    score += 2
+    elif effort > 100:  score += 1
+    # EAF dimension — favorable EAF actively lowers risk
+    if eaf < 0.90:      score -= 1   # high capability/good tools: risk credit
+    elif eaf > 1.15:    score += 2
+    elif eaf > 1.0:     score += 1
+    # LOC dimension
+    if loc > 100:       score += 2
+    elif loc > 30:      score += 1
+    if score >= 4:      return "High",   "#C62828", "risk-high", "High"
+    elif score >= 2:    return "Medium", "#BF6000", "risk-med",  "Medium"
+    else:               return "Low",    "#2E7D32", "risk-low",  "Low"
+
+
+# ── Executive summary ─────────────────────────────────────────────────────────
+def executive_summary(effort, cal_months, team_size, eaf, loc, top_driver, top_saver, risk_label,
+                      ai_effort=None, ai_cal=None, ai_team=None, ai_pct=None, ai_short=None):
+    size_str      = ("small" if loc < 10 else "medium-sized" if loc < 50 else "large")
+    effort_context = ("straightforward" if effort < 50 else "moderate" if effort < 200 else "substantial")
+    lines = [
+        f"This {size_str} project ({loc:.0f} KLOC) is estimated to require "
+        f"<strong>{effort:.0f} person-months</strong> of effort — "
+        f"a {effort_context} undertaking with <strong>{risk_label.lower()} delivery risk</strong>.",
+        f"With a recommended team of <strong>{team_size} engineers</strong>, "
+        f"the projected schedule is approximately <strong>{cal_months:.0f} months</strong>. "
+        f"The largest effort driver is <strong>{top_driver}</strong>"
+        + (f", while the best way to reduce cost is to improve <strong>{top_saver}</strong>." if top_saver else "."),
+    ]
+    if eaf < 0.85:
+        lines.append("Project conditions are <strong>favorable</strong>: high team capability and good tooling are already significantly reducing the baseline estimate.")
+    elif eaf > 1.15:
+        lines.append("Project conditions are <strong>challenging</strong>: several cost drivers are pushing the estimate above the baseline — address these early to avoid overruns.")
+    if ai_effort is not None and ai_pct and ai_pct > 1:
+        lines.append(
+            f"With <strong>{ai_short} AI tool usage</strong>, the estimate drops to "
+            f"<strong>{ai_effort:.0f} PM ({ai_pct:.0f}% reduction)</strong> — "
+            f"a team of {ai_team} could deliver in roughly {ai_cal:.0f} months. "
+            f"Quantifying this gap (COCOMO TOOL tops out at 17%; modern AI tools exceed that) "
+            f"is the novel contribution of this research."
+        )
+    return " ".join(lines)
+
+
 # ── Plots ────────────────────────────────────────────────────────────────────
 def _style_ax(ax, title, xlabel=None):
-    ax.set_title(title, fontsize=10, fontfamily="monospace",
-                 fontweight="bold", color="#24292f", pad=10)
+    ax.set_title(title, fontsize=9, fontweight="normal", color="#444444", pad=8)
     if xlabel:
-        ax.set_xlabel(xlabel, fontsize=8, fontfamily="monospace", color="#57606a")
+        ax.set_xlabel(xlabel, fontsize=8, color="#999999")
     for sp in ["top", "right", "left"]:
         ax.spines[sp].set_visible(False)
-    ax.spines["bottom"].set_color("#d0d7de")
-    ax.tick_params(labelsize=8, colors="#57606a")
-    ax.set_facecolor("#f6f8fa")
+    ax.spines["bottom"].set_color("#DCDCDC")
+    ax.tick_params(labelsize=8, colors="#999999")
+    ax.set_facecolor("white")
 
 def plot_shap_bar(sv_pm, effort_pm):
     order  = np.argsort(np.abs(sv_pm))[::-1][:10]
-    colors = ["#d1242f" if sv_pm[i] > 0 else "#0969da" for i in order]
+    colors = ["#D97070" if sv_pm[i] > 0 else "#6B9BD2" for i in order]
     fig, ax = plt.subplots(figsize=(7, 4))
     fig.patch.set_facecolor("white")
-    ax.set_facecolor("#f6f8fa")
+    ax.set_facecolor("#FAFAFA")
     ax.barh([FEATURES[i] for i in order[::-1]], [sv_pm[i] for i in order[::-1]],
-            color=colors[::-1], height=0.62, edgecolor="none")
-    ax.axvline(0, color="#57606a", lw=0.8, ls="--", alpha=0.6)
-    _style_ax(ax, f"Feature Contributions  →  {effort_pm:.0f} PM",
+            color=colors[::-1], height=0.58, edgecolor="none")
+    ax.axvline(0, color="#A1A1AA", lw=0.8, ls="--", alpha=0.7)
+    _style_ax(ax, f"Feature Contributions  ·  {effort_pm:.0f} PM",
               "SHAP value (person-months)")
-    ax.tick_params(axis="y", labelsize=9, colors="#24292f")
+    ax.tick_params(axis="y", labelsize=8.5, colors="#27272A")
     ax.legend(handles=[
-        mpatches.Patch(color="#d1242f", label="Increases effort"),
-        mpatches.Patch(color="#0969da", label="Decreases effort"),
-    ], fontsize=8, frameon=False)
+        mpatches.Patch(color="#D97070", label="Increases effort"),
+        mpatches.Patch(color="#6B9BD2", label="Decreases effort"),
+    ], fontsize=8, frameon=False, loc="lower right")
     plt.tight_layout()
     return fig
 
@@ -220,16 +570,16 @@ def plot_fahp_vs_shap(sv_pm):
     x, w = np.arange(len(FEATURES)), 0.35
     fig, ax = plt.subplots(figsize=(7, 4))
     fig.patch.set_facecolor("white")
-    ax.set_facecolor("#f6f8fa")
+    ax.set_facecolor("#FAFAFA")
     ax.bar(x - w/2, fn, width=w, label="FAHP prior weight",
-           color="#0969da", alpha=0.85, edgecolor="none")
+           color="#A8B8D8", edgecolor="none")
     ax.bar(x + w/2, sn, width=w, label="SHAP posterior importance",
-           color="#d1242f", alpha=0.85, edgecolor="none")
+           color="#C8A8A8", edgecolor="none")
     ax.set_xticks(x)
     ax.set_xticklabels(FEATURES, rotation=45, ha="right", fontsize=7.5)
-    ax.set_ylabel("Normalised weight", fontsize=8, color="#57606a")
+    ax.set_ylabel("Normalised weight", fontsize=8, color="#71717A")
     _style_ax(ax, "FAHP Prior vs SHAP Posterior")
-    ax.spines["left"].set_color("#d0d7de")
+    ax.spines["left"].set_color("#E4E4E7")
     ax.legend(fontsize=8, frameon=False)
     plt.tight_layout()
     return fig
@@ -243,36 +593,139 @@ def plot_waterfall(sv_pm, base_pm, effort_pm):
     for v in vals:
         starts.append(min(running, running + v))
         widths.append(abs(v))
-        colors.append("#d1242f" if v > 0 else "#0969da")
+        colors.append("#D97070" if v > 0 else "#6B9BD2")
         running += v
     fig, ax = plt.subplots(figsize=(7, 4))
     fig.patch.set_facecolor("white")
-    ax.set_facecolor("#f6f8fa")
+    ax.set_facecolor("#FAFAFA")
     ax.barh(labels[::-1], widths[::-1], left=starts[::-1],
-            color=colors[::-1], height=0.6, edgecolor="none")
-    ax.axvline(base_pm,   color="#8b949e", lw=1.2, ls=":",
+            color=colors[::-1], height=0.56, edgecolor="none")
+    ax.axvline(base_pm,   color="#A1A1AA", lw=1.2, ls=":",
                label=f"Baseline {base_pm:.0f} PM")
-    ax.axvline(effort_pm, color="#24292f", lw=1.5,
+    ax.axvline(effort_pm, color="#09090B", lw=1.5,
                label=f"Prediction {effort_pm:.0f} PM")
     _style_ax(ax, "Cumulative Contribution Waterfall", "Person-months")
-    ax.tick_params(axis="y", colors="#24292f", labelsize=9)
+    ax.tick_params(axis="y", colors="#27272A", labelsize=8.5)
     ax.legend(fontsize=8, frameon=False)
+    plt.tight_layout()
+    return fig
+
+def plot_confidence_band(effort, pi_lo, pi_hi, ai_effort=None):
+    """Render 80% PI band — title is shown via Streamlit, not matplotlib."""
+    lo     = max(1.0, effort * (1 + pi_lo))
+    hi     = effort * (1 + pi_hi)
+    has_ai = ai_effort is not None and ai_effort != effort
+    row_h  = 0.52
+    y_base = 0.38 if has_ai else 0.0
+    y_ai   = -0.65 if has_ai else None
+    fig_h  = 2.8 if has_ai else 2.2
+    fig, ax = plt.subplots(figsize=(7, fig_h))
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
+
+    def _draw_band(y, center, band_lo, band_hi, color, label):
+        ax.barh([y], [band_hi - band_lo], left=[band_lo], height=row_h,
+                color=color, alpha=0.10, edgecolor="none")
+        ax.barh([y], [band_hi - band_lo], left=[band_lo], height=row_h,
+                color="none", edgecolor=color, linewidth=1.1, alpha=0.6)
+        ax.plot([center], [y], marker="|", markersize=20,
+                color=color, markeredgewidth=2.5, linewidth=0)
+        # Endpoint labels — ABOVE the bar to avoid clashing with x-axis ticks
+        ax.text(band_lo, y + row_h * 0.62, f"{band_lo:.0f}",
+                ha="center", va="bottom", fontsize=7.5, color="#71717A",
+                fontfamily="monospace")
+        ax.text(band_hi, y + row_h * 0.62, f"{band_hi:.0f}",
+                ha="center", va="bottom", fontsize=7.5, color="#71717A",
+                fontfamily="monospace")
+        # Row label — left of the chart (y-axis label replacement)
+        ax.text(ax.get_xlim()[0] if ax.get_xlim()[0] != 0 else band_lo * 0.55,
+                y, label, ha="right", va="center",
+                fontsize=8, fontweight="600", color=color, fontfamily="sans-serif")
+
+    # Compute xlim first so label placement is stable
+    all_vals = [lo, hi, effort]
+    if has_ai:
+        ai_lo = max(1.0, ai_effort * (1 + pi_lo))
+        ai_hi = ai_effort * (1 + pi_hi)
+        all_vals += [ai_lo, ai_hi, ai_effort]
+    x_min = min(all_vals) * 0.60
+    x_max = max(all_vals) * 1.14
+    ax.set_xlim(x_min, x_max)
+
+    _draw_band(y_base, effort, lo, hi, "#2563EB", f"Baseline  {effort:.0f} PM")
+    if has_ai:
+        _draw_band(y_ai, ai_effort, ai_lo, ai_hi, "#16A34A", f"With AI  {ai_effort:.0f} PM")
+
+    ax.set_yticks([])
+    ax.set_xlabel("Person-months", fontsize=8, color="#71717A", fontfamily="sans-serif")
+    for sp in ["top", "right", "left"]: ax.spines[sp].set_visible(False)
+    ax.spines["bottom"].set_color("#E4E4E7")
+    ax.tick_params(labelsize=7.5, colors="#71717A")
+    ax.grid(axis="x", color="#F4F4F5", linewidth=0.7, zorder=0)
+    # Add headroom above the bar so endpoint labels don't get clipped
+    top_y = (y_base if not has_ai else max(y_base, y_ai or y_base)) + row_h * 1.0
+    bot_y = (y_ai if has_ai else y_base) - row_h * 0.8
+    ax.set_ylim(bot_y, top_y)
+    plt.tight_layout(pad=1.2)
+    return fig
+
+
+# ── GenAI comparison chart ───────────────────────────────────────────────────
+def plot_ai_comparison(effort, ai_effort, ai_lo, ai_hi, ai_label):
+    saving = effort - ai_effort
+    pct    = saving / effort * 100
+    labels = ["Baseline\n(no AI)", f"With AI\n({ai_label})"]
+    values = [effort, ai_effort]
+    colors = ["#3D5A80", "#4E8A6E"]
+    fig, ax = plt.subplots(figsize=(5, 2.8))
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
+    bars = ax.barh(labels, values, color=colors, height=0.4,
+                   edgecolor="none", alpha=0.85)
+    # Uncertainty range for AI bar
+    ax.barh([labels[1]], [ai_hi - ai_lo], left=[ai_lo],
+            height=0.4, color="#16A34A", alpha=0.15,
+            edgecolor="#4E8A6E", linewidth=0.8)
+    for bar, val in zip(bars, values):
+        ax.text(val + effort * 0.02, bar.get_y() + bar.get_height() / 2,
+                f"{val:.0f} PM", va="center",
+                fontfamily="monospace", fontsize=9, fontweight="600", color="#09090B")
+    ax.text(ai_hi + effort * 0.02,
+            bars[1].get_y() + bars[1].get_height() / 2 - 0.22,
+            f"{ai_lo:.0f}–{ai_hi:.0f} range",
+            va="center", fontfamily="monospace", fontsize=7.5, color="#71717A")
+    ax.set_xlabel("Person-months", fontsize=8, color="#71717A", fontfamily="sans-serif")
+    _style_ax(ax, f"GenAI saves {saving:.0f} PM  ({pct:.0f}% reduction)")
+    ax.set_xlim(0, effort * 1.45)
+    ax.grid(axis="x", color="#F4F4F5", linewidth=0.7, zorder=0)
+    for sp in ["top", "right", "left"]: ax.spines[sp].set_visible(False)
     plt.tight_layout()
     return fig
 
 
 # ── What-if ──────────────────────────────────────────────────────────────────
 def whatif(base_raw, base_effort, ratings):
+    """
+    For each action, compute effort if we move one rating step in the beneficial direction.
+    Capability/experience/practice drivers (ACAP, AEXP, PCAP, VEXP, LEXP, MODP, TOOL):
+      higher rating → lower multiplier → less effort, so direction = +1 (Nominal→High).
+    Stress drivers (CPLX, RELY, TIME, STOR):
+      lower rating → lower multiplier → less effort, so direction = -1 (Nominal→Low).
+    """
     improvable = {
-        "ACAP": ("Increase analyst capability",    -1),
-        "AEXP": ("Increase application experience",-1),
-        "PCAP": ("Increase programmer capability", -1),
-        "CPLX": ("Reduce complexity",              -1),
-        "TOOL": ("Adopt better tools",             -1),
-        "MODP": ("Improve modern practices",       -1),
-        "RELY": ("Lower reliability requirement",  -1),
-        "TIME": ("Relax time constraint",          -1),
-        "STOR": ("Relax memory constraint",        -1),
+        # Capability & practice drivers: improve = move UP the scale (+1)
+        "ACAP": ("Increase analyst capability",      +1),
+        "AEXP": ("Increase application experience",  +1),
+        "PCAP": ("Increase programmer capability",   +1),
+        "VEXP": ("Increase VM experience",           +1),
+        "LEXP": ("Increase language experience",     +1),
+        "MODP": ("Improve modern practices",         +1),
+        "TOOL": ("Adopt better tools",               +1),
+        # Stress drivers: reduce = move DOWN the scale (-1)
+        "CPLX": ("Reduce complexity",                -1),
+        "RELY": ("Lower reliability requirement",    -1),
+        "TIME": ("Relax time constraint",            -1),
+        "STOR": ("Relax memory constraint",          -1),
     }
     results = []
     for feat, (label, direction) in improvable.items():
@@ -293,38 +746,103 @@ def whatif(base_raw, base_effort, ratings):
 # SIDEBAR
 # ══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown("## `SEE`")
-    st.markdown("<p style='color:#8b949e;font-size:0.8rem;margin-top:-0.5rem;'>Software Effort Estimator</p>", unsafe_allow_html=True)
-    st.markdown("---")
+    # ── Brand header ─────────────────────────────────────────────────────────
+    st.markdown("""
+    <div style='padding:0 0 0.8rem 0;border-bottom:1px solid #1E1E1E;margin-bottom:0.8rem;'>
+      <div style='font-size:0.85rem;font-weight:600;color:#DDDDDD;letter-spacing:-0.01em;'>Software Effort Estimator</div>
+      <div style='font-size:0.67rem;color:#555555;margin-top:0.1rem;font-family:monospace;letter-spacing:0.04em;'>FAHP &middot; SVR &middot; SHAP</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown("<p style='color:#8b949e;font-size:0.72rem;letter-spacing:0.1em;text-transform:uppercase;'>Project Scale</p>", unsafe_allow_html=True)
-    loc = st.slider("Lines of Code (KLOC)", 1, 500, 50)
+    # ── Project scale — always visible ────────────────────────────────────────
+    st.markdown("<div class='sb-section'>Project Scale</div>", unsafe_allow_html=True)
+    loc = st.slider("Lines of Code (KLOC)", 1, 500, 50,
+                    label_visibility="collapsed")
+    st.markdown(
+        f"<div style='font-size:0.75rem;color:#666666;font-family:monospace;"
+        f"margin-top:-0.4rem;margin-bottom:0.9rem;'>{loc} KLOC</div>",
+        unsafe_allow_html=True)
 
-    st.markdown("<p style='color:#8b949e;font-size:0.72rem;letter-spacing:0.1em;text-transform:uppercase;margin-top:0.5rem;'>Product</p>", unsafe_allow_html=True)
-    rely = st.selectbox("RELY · Reliability",    RATING_LABELS, index=2)
-    data = st.selectbox("DATA · Database Size",  RATING_LABELS, index=2)
-    cplx = st.selectbox("CPLX · Complexity",     RATING_LABELS, index=2)
+    # ── COCOMO cost drivers in collapsible groups ─────────────────────────────
+    with st.expander("Product Attributes", expanded=False):
+        rely = st.selectbox("RELY · Required Reliability", RATING_LABELS, index=2)
+        data = st.selectbox("DATA · Database Size",        RATING_LABELS, index=2)
+        cplx = st.selectbox("CPLX · Process Complexity",   RATING_LABELS, index=2)
 
-    st.markdown("<p style='color:#8b949e;font-size:0.72rem;letter-spacing:0.1em;text-transform:uppercase;margin-top:0.5rem;'>Computer</p>", unsafe_allow_html=True)
-    time_ = st.selectbox("TIME · Time Constraint",   RATING_LABELS, index=2)
-    stor  = st.selectbox("STOR · Memory Constraint", RATING_LABELS, index=2)
-    virt  = st.selectbox("VIRT · VM Volatility",     RATING_LABELS, index=2)
-    turn  = st.selectbox("TURN · Turnaround",        RATING_LABELS, index=2)
+    with st.expander("Computer Constraints", expanded=False):
+        time_ = st.selectbox("TIME · CPU Time Constraint",  RATING_LABELS, index=2)
+        stor  = st.selectbox("STOR · Memory Constraint",    RATING_LABELS, index=2)
+        virt  = st.selectbox("VIRT · VM Volatility",        RATING_LABELS, index=2)
+        turn  = st.selectbox("TURN · Turnaround Time",      RATING_LABELS, index=2)
 
-    st.markdown("<p style='color:#8b949e;font-size:0.72rem;letter-spacing:0.1em;text-transform:uppercase;margin-top:0.5rem;'>Personnel</p>", unsafe_allow_html=True)
-    acap = st.selectbox("ACAP · Analyst Capability",    RATING_LABELS, index=2)
-    aexp = st.selectbox("AEXP · App Experience",        RATING_LABELS, index=2)
-    pcap = st.selectbox("PCAP · Programmer Capability", RATING_LABELS, index=2)
-    vexp = st.selectbox("VEXP · VM Experience",         RATING_LABELS, index=2)
-    lexp = st.selectbox("LEXP · Language Experience",   RATING_LABELS, index=2)
+    with st.expander("Team & Personnel", expanded=False):
+        acap = st.selectbox("ACAP · Analyst Capability",    RATING_LABELS, index=2)
+        aexp = st.selectbox("AEXP · App Experience",        RATING_LABELS, index=2)
+        pcap = st.selectbox("PCAP · Programmer Capability", RATING_LABELS, index=2)
+        vexp = st.selectbox("VEXP · VM Experience",         RATING_LABELS, index=2)
+        lexp = st.selectbox("LEXP · Language Experience",   RATING_LABELS, index=2)
 
-    st.markdown("<p style='color:#8b949e;font-size:0.72rem;letter-spacing:0.1em;text-transform:uppercase;margin-top:0.5rem;'>Project</p>", unsafe_allow_html=True)
-    modp = st.selectbox("MODP · Modern Practices",    RATING_LABELS, index=2)
-    tool = st.selectbox("TOOL · Software Tools",      RATING_LABELS, index=2)
-    sced = st.selectbox("SCED · Schedule Constraint", RATING_LABELS, index=2)
+    with st.expander("Project Practices", expanded=False):
+        modp = st.selectbox("MODP · Modern Practices",    RATING_LABELS, index=2)
+        tool = st.selectbox("TOOL · Software Tools",      RATING_LABELS, index=2)
+        sced = st.selectbox("SCED · Schedule Constraint", RATING_LABELS, index=2)
 
-    st.markdown("---")
-    run = st.button("▶  Estimate Effort", use_container_width=True, type="primary")
+    st.markdown("<hr style='border:none;border-top:1px solid #27272A;margin:0.8rem 0;'>",
+                unsafe_allow_html=True)
+
+    # ── GenAI section ─────────────────────────────────────────────────────────
+    st.markdown("<div class='sb-section'>GenAI Productivity</div>", unsafe_allow_html=True)
+    ai_level = st.selectbox(
+        "ai_level",
+        ["None — no AI tools",
+         "Some — Copilot / ChatGPT",
+         "Heavy — Cursor / AI-first team"],
+        index=0,
+        label_visibility="collapsed",
+    )
+
+    # Study-backed multiplier ranges
+    # • Peng et al. 2023 (GitHub, n=95 devs): 55% faster on isolated tasks → ~18–25% full project
+    # • McKinsey 2023 (850 projects): 20–45% depending on AI adoption depth
+    # • Kalliamvakou 2022 (GitHub): 26% faster for Copilot users
+    AI_MULT = {
+        "None — no AI tools":             1.00,
+        "Some — Copilot / ChatGPT":       0.78,   # midpoint of 18–25% range
+        "Heavy — Cursor / AI-first team": 0.62,   # midpoint of 30–45% range
+    }
+    AI_LO = {   # optimistic bound (max reduction)
+        "None — no AI tools":             1.00,
+        "Some — Copilot / ChatGPT":       0.75,
+        "Heavy — Cursor / AI-first team": 0.55,
+    }
+    AI_HI = {   # conservative bound (min reduction)
+        "None — no AI tools":             1.00,
+        "Some — Copilot / ChatGPT":       0.82,
+        "Heavy — Cursor / AI-first team": 0.70,
+    }
+    AI_SOURCE = {
+        "None — no AI tools":             "",
+        "Some — Copilot / ChatGPT":       "−18–25% · Peng et al. 2023, McKinsey 2023",
+        "Heavy — Cursor / AI-first team": "−30–45% · McKinsey 2023, Kalliamvakou 2022",
+    }
+    ai_mult    = AI_MULT[ai_level]
+    ai_mult_lo = AI_LO[ai_level]
+    ai_mult_hi = AI_HI[ai_level]
+
+    if ai_level != "None — no AI tools":
+        st.markdown(
+            f"<div class='sb-ai-source'>{ai_mult:.0%} estimate &nbsp;·&nbsp; "
+            f"{AI_SOURCE[ai_level]}</div>",
+            unsafe_allow_html=True)
+
+    st.markdown("<hr style='border:none;border-top:1px solid #27272A;margin:0.8rem 0;'>",
+                unsafe_allow_html=True)
+    if st.button("▶  Estimate Effort", use_container_width=True, type="primary"):
+        st.rerun()
+
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+    dark_mode = st.toggle("Dark mode", value=st.session_state.get("dark_mode", False),
+                          key="dark_mode")
 
 ratings = dict(
     RELY=rely, DATA=data, CPLX=cplx, TIME=time_, STOR=stor,
@@ -337,56 +855,20 @@ ratings = dict(
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ── Hero header ───────────────────────────────────────────────────────────────
+n_total = art["n_train"]
 st.markdown(f"""
-<div class="hero">
-  <div class="hero-title">📐 Software Effort Estimator</div>
-  <div class="hero-sub">
-    Explainable AI for software project planning &nbsp;·&nbsp;
-    FAHP · Weighted-Kernel SVR · SHAP
-  </div>
-  <div style="margin-top:0.6rem;">
-    <span class="hero-badge">LOO-MMRE {art['loo_mmre']:.4f}</span>
-    <span class="hero-badge hero-badge-green">n=63 projects</span>
-    <span class="hero-badge hero-badge-orange">COCOMO-81 benchmark</span>
+<div class="page-header">
+  <div class="page-title"> &nbsp;Software Effort Estimator</div>
+  <div class="page-subtitle">Explainable AI for software project planning &nbsp;&middot;&nbsp; FAHP &nbsp;&middot;&nbsp; Weighted-Kernel SVR &nbsp;&middot;&nbsp; SHAP</div>
+  <div>
+    <span class="stat-pill-blue">LOO-MMRE {art['loo_mmre']:.4f}</span>
+    <span class="stat-pill-green">n={N_81} projects</span>
+    <span class="stat-pill-dark">COCOMO-81 benchmark</span>
+    <span class="stat-pill-dark">Chang 1996 FAHP</span>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ── Landing state: show pipeline explanation ──────────────────────────────────
-if not run:
-    st.markdown("""
-    <div class="pipeline-box">
-      <div class="pipeline-step">
-        <div class="step-num">1</div>
-        <div>
-          <div class="step-title">FAHP Feature Weighting</div>
-          <div class="step-desc">Fuzzy Analytic Hierarchy Process (Chang 1996 extent analysis) builds pairwise comparison matrices from project effort and LOC. Consistency ratio verified &lt; 0.1. Project weights are mapped to feature importance via Spearman correlation, then embedded into the kernel as S = diag(√θ).</div>
-        </div>
-      </div>
-      <div class="pipeline-step">
-        <div class="step-num">2</div>
-        <div>
-          <div class="step-title">Weighted-Kernel SVR Prediction</div>
-          <div class="step-desc">Support Vector Regression with RBF kernel trained in log-space on COCOMO-81 (n=63). Pre-multiplying features by √(FAHP weights) implements the weighted kernel K(θx_k, θx_l) from Eq. 17. Hyperparameters C and γ tuned via Leave-One-Out MMRE grid search — achieving 0.4619 vs paper baseline of 0.57.</div>
-        </div>
-      </div>
-      <div class="pipeline-step" style="margin-bottom:0;">
-        <div class="step-num">3</div>
-        <div>
-          <div class="step-title">SHAP Explainability Layer</div>
-          <div class="step-desc">KernelExplainer decomposes every prediction into signed per-feature contributions in person-month units. Enables direct comparison between FAHP prior weights (expert-derived) and SHAP posterior importance (data-driven) — revealing where the model agrees or diverges from expert assumptions.</div>
-        </div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <p style='color:#8c959f;font-size:0.82rem;text-align:center;margin-top:1rem;'>
-        ← Configure project parameters in the sidebar, then click <strong>Estimate Effort</strong>
-    </p>
-    """, unsafe_allow_html=True)
-    st.stop()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -395,26 +877,74 @@ if not run:
 vec_raw       = inputs_to_raw(loc, ratings)
 effort, vec_w = predict(vec_raw)
 eaf = float(np.prod([COCOMO_MULT[f][RATING_MAP[ratings[f]]] for f in COCOMO_MULT]))
+cal_months    = 2.5 * (effort ** 0.38)
+team_size     = max(1, round(effort / cal_months))
+pi_lo_abs     = max(1.0, effort * (1 + PI_LO))
+pi_hi_abs     = effort * (1 + PI_HI)
+risk_label, risk_color, risk_css, risk_icon = classify_risk(effort, eaf, loc)
+# GenAI-adjusted figures
+ai_effort     = effort * ai_mult
+ai_effort_lo  = effort * ai_mult_lo   # optimistic (max reduction)
+ai_effort_hi  = effort * ai_mult_hi   # conservative (min reduction)
+ai_cal        = 2.5 * (ai_effort ** 0.38)
+ai_team       = max(1, round(ai_effort / ai_cal))
+ai_saving     = effort - ai_effort
+ai_pct        = ai_saving / effort * 100
+ai_using      = ai_mult < 1.0
+ai_short      = ai_level.split("—")[0].strip()
 
-# ── Metrics ───────────────────────────────────────────────────────────────────
-c1, c2, c3, c4 = st.columns(4)
-for col, label, value, unit in [
-    (c1, "Predicted Effort",     f"{effort:.0f}",              "person-months"),
-    (c2, "Calendar Time",        f"{effort/12:.1f}",            "person-years"),
-    (c3, "Recommended Team",     f"{max(1,round(effort/18))}",  "engineers"),
-    (c4, "Effort Adj. Factor",   f"{eaf:.3f}",                  "combined EAF"),
-]:
+# ── Metric cards ──────────────────────────────────────────────────────────────
+c1, c2, c3, c4, c5 = st.columns(5)
+cols_data = [
+    (c1, "Predicted Effort",   f"{effort:.0f}",     "person-months",
+     f"<span style='font-size:0.72rem;color:#57606a;'>80% range: {pi_lo_abs:.0f} – {pi_hi_abs:.0f} PM</span>"),
+    (c2, "Calendar Duration",  f"{cal_months:.0f}", "months",
+     f"<span style='font-size:0.72rem;color:#57606a;'>COCOMO T = 2.5 × PM⁰·³⁸</span>"),
+    (c3, "Recommended Team",   f"{team_size}",       "engineers",
+     f"<span style='font-size:0.72rem;color:#57606a;'>{effort:.0f} PM ÷ {cal_months:.0f} mo</span>"),
+    (c4, "Effort Adj. Factor", f"{eaf:.3f}",         "combined EAF",
+     f"<span style='font-size:0.72rem;color:#57606a;'>{'< 1 = favorable' if eaf < 1 else ('= 1 = average' if abs(eaf-1)<0.01 else '> 1 = challenging')}</span>"),
+    (c5, "Delivery Risk",      risk_label,           "composite score",
+     f"<span style='font-size:0.71rem;color:#AAAAAA;'>size &middot; EAF &middot; complexity</span>"),
+]
+for col, label, value, unit, sub in cols_data:
+    risk_style = f"color:{risk_color};" if label == "Delivery Risk" else ""
     col.markdown(f"""<div class='metric-card'>
         <div class='metric-label'>{label}</div>
-        <div class='metric-value'>{value}</div>
+        <div class='metric-value' style='{risk_style}'>{value}</div>
         <div class='metric-unit'>{unit}</div>
+        <div class='metric-range'>{sub}</div>
     </div>""", unsafe_allow_html=True)
 
-# ── SHAP ──────────────────────────────────────────────────────────────────────
-st.markdown("<div class='section-header'>Explainability</div>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
+# ── Confidence band ────────────────────────────────────────────────────────────
+st.markdown("<div class='section-header'>80% Prediction Interval &nbsp;·&nbsp; empirical, Leave-One-Out</div>", unsafe_allow_html=True)
+st.pyplot(plot_confidence_band(effort, PI_LO, PI_HI,
+         ai_effort=ai_effort if ai_using else None), use_container_width=True)
+
+# ── Executive Summary ─────────────────────────────────────────────────────────
 with st.spinner("Computing SHAP values…"):
     sv_pm, base_pm = compute_shap(tuple(vec_w.ravel().tolist()))
+
+top_pos_feats = [FEATURES[i] for i in np.argsort(sv_pm)[::-1] if sv_pm[i] > 0]
+wi_results    = whatif(vec_raw, effort, ratings)
+top_driver    = top_pos_feats[0] if top_pos_feats else "project size"
+top_saver     = wi_results[0]["feature"] if wi_results else None
+
+summary_html = executive_summary(
+    effort, cal_months, team_size, eaf, loc, top_driver, top_saver, risk_label,
+    ai_effort=ai_effort if ai_using else None,
+    ai_cal=ai_cal, ai_team=ai_team, ai_pct=ai_pct, ai_short=ai_short,
+)
+st.markdown(f"""
+<div class="exec-summary">
+  <div class="exec-summary-label">Executive Summary</div>
+  <div class="exec-summary-text">{summary_html}</div>
+</div>""", unsafe_allow_html=True)
+
+# ── SHAP tabs ─────────────────────────────────────────────────────────────────
+st.markdown("<div class='section-header'>Explainability</div>", unsafe_allow_html=True)
 
 tab1, tab2, tab3 = st.tabs(["Feature Contributions", "FAHP vs SHAP", "Waterfall"])
 with tab1:
@@ -426,110 +956,203 @@ with tab3:
 
 # ── Insights ──────────────────────────────────────────────────────────────────
 st.markdown("<div class='section-header'>Key Insights</div>", unsafe_allow_html=True)
-
 top_pos = [(FEATURES[i], sv_pm[i]) for i in np.argsort(sv_pm)[::-1] if sv_pm[i] > 0][:3]
 top_neg = [(FEATURES[i], sv_pm[i]) for i in np.argsort(sv_pm)       if sv_pm[i] < 0][:2]
+
+def _rating_tag(feat):
+    """Return a short human-readable tag showing the current setting for a feature."""
+    if feat == "LOC (KLOC)":
+        return f"{loc:.0f} KLOC"
+    return ratings.get(feat, "")
 
 ic1, ic2 = st.columns(2)
 with ic1:
     st.markdown("**Effort drivers — pushing up**")
     for feat, val in top_pos:
+        tag = _rating_tag(feat)
+        tag_html = f" <span style='font-size:0.75rem;color:#999;font-weight:400;'>({tag})</span>" if tag else ""
         st.markdown(f"""<div class='insight-box insight-up'>
-            <strong>{feat}</strong> &nbsp;·&nbsp; {FEAT_DESC.get(feat,feat)}<br>
+            <strong>{feat}</strong>{tag_html} &nbsp;·&nbsp; {FEAT_DESC.get(feat,feat)}<br>
             <span style='font-family:monospace;'>+{val:.1f} PM</span> above baseline
         </div>""", unsafe_allow_html=True)
 with ic2:
     st.markdown("**Effort reducers — pushing down**")
     for feat, val in top_neg:
+        tag = _rating_tag(feat)
+        tag_html = f" <span style='font-size:0.75rem;color:#999;font-weight:400;'>({tag})</span>" if tag else ""
         st.markdown(f"""<div class='insight-box insight-down'>
-            <strong>{feat}</strong> &nbsp;·&nbsp; {FEAT_DESC.get(feat,feat)}<br>
+            <strong>{feat}</strong>{tag_html} &nbsp;·&nbsp; {FEAT_DESC.get(feat,feat)}<br>
             <span style='font-family:monospace;'>{val:.1f} PM</span> below baseline
         </div>""", unsafe_allow_html=True)
 
-# ── FAHP vs SHAP alignment ────────────────────────────────────────────────────
-st.markdown("<div class='section-header'>FAHP Prior vs SHAP Posterior — Alignment</div>",
-            unsafe_allow_html=True)
-
-st.markdown("""<div class='insight-note'>
-    FAHP weights encode <strong>expert prior beliefs</strong> about feature importance.
-    SHAP values capture <strong>what the model actually learned</strong> from data.
-    Divergence between the two is itself a finding — it reveals where expert assumptions
-    and historical patterns disagree.
+# ── FAHP vs SHAP alignment ─────────────────────────────────────────────────────
+st.markdown("<div class='section-header'>FAHP Prior vs SHAP Posterior — Alignment</div>", unsafe_allow_html=True)
+st.markdown("""<div class='explain-note'>
+    <div class='explain-label'>Methodology note</div>
+    <div class='explain-text'>
+        <strong>FAHP weights</strong> capture data-driven feature importance — derived from Spearman
+        correlations between each feature and project-level effort/LOC weights (an indirect proxy for
+        expert pairwise comparisons). <strong>SHAP values</strong> reveal what the trained SVR model
+        actually learned from 63 COCOMO-81 projects. Divergence between the two is itself a research
+        finding: it shows where the FAHP weighting and empirical model behaviour agree or differ.
+    </div>
 </div>""", unsafe_allow_html=True)
-
 f3 = np.argsort(fahp_w)[::-1][:3]
 s3 = np.argsort(np.abs(sv_pm))[::-1][:3]
 agree = len(set(f3) & set(s3)) / 3 * 100
-colour = "#1a7f37" if agree >= 67 else ("#9a6700" if agree >= 33 else "#d1242f")
-label  = "Strong agreement" if agree >= 67 else ("Partial" if agree >= 33 else "Disagreement")
-
+colour = "#2E7D32" if agree >= 67 else ("#BF6000" if agree >= 33 else "#C62828")
+label_agree = "Strong agreement" if agree >= 67 else ("Partial" if agree >= 33 else "Disagreement")
 ac1, ac2 = st.columns([2.5, 1])
 with ac1:
-    st.dataframe(pd.DataFrame({
-        "Rank":             ["#1", "#2", "#3"],
-        "FAHP (prior)":     [FEATURES[i] for i in f3],
-        "SHAP (posterior)": [FEATURES[i] for i in s3],
-        "Match":            ["✅" if f3[i] == s3[i] else ("⚠️" if f3[i] in s3 else "❌") for i in range(3)],
-    }), use_container_width=True, hide_index=True)
+    def _match_badge(i):
+        if f3[i] == s3[i]:
+            return "<span class='match-badge match-aligned'>Aligned</span>"
+        elif f3[i] in s3:
+            return "<span class='match-badge match-partial'>Partial</span>"
+        else:
+            return "<span class='match-badge match-divergent'>Divergent</span>"
+    rows_html = "".join(
+        f"<tr><td>#{i+1}</td><td>{FEATURES[f3[i]]}</td><td>{FEATURES[s3[i]]}</td><td>{_match_badge(i)}</td></tr>"
+        for i in range(3)
+    )
+    st.markdown(f"""
+    <table class='data-table'>
+      <thead><tr>
+        <th>Rank</th><th>FAHP Prior</th><th>SHAP Posterior</th><th>Match</th>
+      </tr></thead>
+      <tbody>{rows_html}</tbody>
+    </table>""", unsafe_allow_html=True)
 with ac2:
     st.markdown(f"""<div class='metric-card' style='border-color:{colour};'>
         <div class='metric-label'>Alignment Score</div>
         <div class='metric-value' style='color:{colour};'>{agree:.0f}%</div>
-        <div class='metric-unit'>{label}</div>
+        <div class='metric-unit'>{label_agree}</div>
     </div>""", unsafe_allow_html=True)
 
-# ── What-if ───────────────────────────────────────────────────────────────────
-st.markdown("<div class='section-header'>What-If Analysis — Reduction Opportunities</div>",
-            unsafe_allow_html=True)
-wi = whatif(vec_raw, effort, ratings)
-if wi:
-    st.dataframe(pd.DataFrame([{
-        "Action":      r["action"], "Feature": r["feature"],
-        "Change":      f"{r['from_']} → {r['to']}",
-        "Saves (PM)":  f"{r['saving']:.1f}",
-        "% Reduction": f"{r['pct']:.1f}%",
-    } for r in wi]), use_container_width=True, hide_index=True)
-    b = wi[0]
-    st.markdown(f"""<div class='insight-box insight-down'>
-        💡 <strong>Top recommendation:</strong> {b['action']}
-        &nbsp;({b['feature']}: {b['from_']} → {b['to']})&nbsp;
-        saves <strong>{b['saving']:.0f} PM ({b['pct']:.1f}%)</strong>
+# ── What-if ────────────────────────────────────────────────────────────────────
+st.markdown("<div class='section-header'>What-If Analysis — Reduction Opportunities</div>", unsafe_allow_html=True)
+if wi_results:
+    wi_rows = "".join(
+        f"<tr><td>{r['action']}</td>"
+        f"<td style='font-family:monospace;font-size:0.77rem;color:#555;'>{r['feature']}</td>"
+        f"<td>{r['from_']} &rarr; {r['to']}</td>"
+        f"<td style='font-family:monospace;font-weight:600;color:#2E7D32;'>&#8722;{r['saving']:.1f}</td>"
+        f"<td style='font-family:monospace;color:#2E7D32;'>{r['pct']:.1f}%</td></tr>"
+        for r in wi_results
+    )
+    st.markdown(f"""
+    <table class='data-table'>
+      <thead><tr>
+        <th>Action</th><th>Feature</th><th>Change</th><th>Saves (PM)</th><th>Reduction</th>
+      </tr></thead>
+      <tbody>{wi_rows}</tbody>
+    </table>""", unsafe_allow_html=True)
+    b = wi_results[0]
+    st.markdown(f"""<div class='wi-callout'>
+        <strong>Top recommendation:</strong> {b['action']}
+        &nbsp;&middot;&nbsp; {b['feature']}: {b['from_']} &rarr; {b['to']}
+        &nbsp;&middot;&nbsp; saves <strong>{b['saving']:.0f} PM ({b['pct']:.1f}%)</strong>
     </div>""", unsafe_allow_html=True)
 else:
     st.info("No improvement opportunities — already at optimal settings.")
 
-# ── Expandable details ────────────────────────────────────────────────────────
-with st.expander("📋 COCOMO Cost Driver Reference"):
-    rows = [{"Feature": f, "Description": FEAT_DESC.get(f,"")}
-            | {lbl: COCOMO_MULT[f][i] for i, lbl in enumerate(RATING_LABELS)}
-            for f in COCOMO_MULT]
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+# ── GenAI Impact Analysis ─────────────────────────────────────────────────────
+st.markdown("<div class='section-header'>GenAI Impact Analysis</div>", unsafe_allow_html=True)
+if ai_using:
+    ga1, ga2 = st.columns([1.5, 1])
+    with ga1:
+        st.pyplot(plot_ai_comparison(effort, ai_effort, ai_effort_lo, ai_effort_hi, ai_short),
+                  use_container_width=True)
+    with ga2:
+        ai_pct_lo = (1 - ai_mult_hi) * 100
+        ai_pct_hi = (1 - ai_mult_lo) * 100
+        st.markdown(f"""<div class='metric-card'>
+            <div class='metric-label'>AI Saving</div>
+            <div class='metric-value' style='color:#16A34A;font-size:1.85rem;'>{ai_pct:.0f}%</div>
+            <div class='metric-unit'>effort reduction</div>
+            <div class='metric-range'>{ai_pct_lo:.0f}–{ai_pct_hi:.0f}% study range</div>
+        </div>""", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(f"""<div class='metric-card'>
+            <div class='metric-label'>AI-Adjusted Estimate</div>
+            <div class='metric-value' style='font-size:1.85rem;'>{ai_effort:.0f}</div>
+            <div class='metric-unit'>person-months</div>
+            <div class='metric-range'>{ai_effort_lo:.0f}–{ai_effort_hi:.0f} PM range</div>
+        </div>""", unsafe_allow_html=True)
+    source_text = AI_SOURCE[ai_level]
+    st.markdown(f"""<div class='explain-note' style='margin-top:0.8rem;'>
+        <div class='explain-label'>Source</div>
+        <div class='explain-text'>
+            Productivity multipliers derived from peer-reviewed research: <strong>{source_text}</strong>.
+            COCOMO-81's TOOL driver caps out at 17% effort reduction; modern AI coding tools
+            measurably exceed this — quantifying that gap is the novel contribution of this work.
+        </div>
+    </div>""", unsafe_allow_html=True)
+else:
+    st.markdown("""<div class='explain-note'>
+        <div class='explain-label'>GenAI adjustment disabled</div>
+        <div class='explain-text'>
+            Select a GenAI adoption level in the sidebar to model productivity gains from
+            Copilot, ChatGPT, Cursor, or similar AI coding tools.
+            Multipliers are grounded in published research (Peng et al. 2023; McKinsey 2023;
+            Kalliamvakou 2022).
+        </div>
+    </div>""", unsafe_allow_html=True)
 
-with st.expander("🔬 Model Details"):
-    m1, m2, m3 = st.columns(3)
-    m1.metric("LOO-CV MMRE", f"{art['loo_mmre']:.4f}",
-              delta=f"{art['loo_mmre']-0.57:+.4f} vs baseline 0.57", delta_color="inverse")
-    m2.metric("Train MMRE",  f"{art['train_mmre']:.4f}")
-    m3.metric("Train RMSE",  f"{art['train_rmse']:.1f} PM")
-    st.markdown(f"""
-    | Parameter | Value |
-    |-----------|-------|
-    | Kernel | RBF (weighted, Eq. 17) |
-    | C | {art['best_C']} |
-    | γ | {art['best_gamma']} |
-    | ε | 0.1 |
-    | Training samples | {art['n_train']} |
-    | Validation | Leave-One-Out CV |
-    """)
-    st.dataframe(pd.DataFrame({
-        "Feature":   FEATURES,
-        "FAHP θ":    [f"{w:.5f}" for w in fahp_w],
-        "Kernel √θ": [f"{w:.5f}" for w in kernel_w],
-        "Rank":      [str(r+1) for r in np.argsort(np.argsort(-fahp_w))],
-    }), use_container_width=True, hide_index=True)
+# ── Model Limitations ─────────────────────────────────────────────────────────
+st.markdown("<div class='section-header'>Validity &amp; Limitations</div>", unsafe_allow_html=True)
+st.markdown(f"""
+<div class='explain-note' style='border-left-color:#BF6000;'>
+  <div class='explain-label' style='color:#BF6000;'>Scope of validity — read before citing results</div>
+  <div class='explain-text'>
+    <strong>Training data:</strong> {N_81} COCOMO-81 projects (1980s defense/aerospace software).
+    The model has no exposure to React, microservices, CI/CD,
+    or cloud-native development. Results should be treated as directional estimates, not budget commitments.<br><br>
+    <strong>Method:</strong> Feature weights are derived via Spearman correlation (a data-driven proxy for
+    expert FAHP), and the solver is sklearn SVR rather than the LSSVM in Sehra et al. (2018).
+    The weighted-kernel formulation (Eq.&nbsp;17) is faithfully implemented; the solver and weight-derivation
+    are acknowledged simplifications.<br><br>
+    <strong>GenAI adjustment:</strong> Post-hoc multipliers from external studies, not trained into the model.
+    Applied to total effort; actual productivity gains in coding-only tasks may be higher.
+    <strong>80% PI of [{PI_LO*100:+.0f}%, {PI_HI*100:+.0f}%]</strong> means roughly 1-in-5 projects
+    will fall outside this range. Wide but empirically grounded.
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
-st.markdown("""
-<hr style='border:none;border-top:1px solid #d0d7de;margin-top:2.5rem;'>
-<p style='font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:#8c959f;text-align:center;'>
-    FAHP (Chang 1996) · Weighted-Kernel SVR · SHAP KernelExplainer · COCOMO-81
-</p>""", unsafe_allow_html=True)
+# ── Methodology expander ───────────────────────────────────────────────────────
+with st.expander("Methodology — how this works", expanded=False):
+    st.markdown("""
+**Pipeline overview**
+
+1. **FAHP Feature Weighting** — Chang (1996) extent analysis builds project-level pairwise matrices from the effort/LOC distributions of all 63 training projects. Feature importance is derived via Spearman correlation. Weights embedded as S = diag(√θ) into the SVR kernel.
+
+2. **Weighted-Kernel SVR** — sklearn SVR with RBF kernel, trained in log-space on COCOMO-81 (n=63). Kernel: K(θxₖ, θxₗ) = exp(−γ‖√θ(xₖ−xₗ)‖²). C and γ tuned by LOO-MMRE grid search.
+
+3. **Leave-One-Out CV** — Each project held out once; model trains on n−1, predicts the held-out. LOO-MMRE is the headline metric.
+
+4. **Empirical 80% PI** — 10th/90th percentile of LOO signed relative errors. No parametric assumption.
+
+5. **SHAP** — KernelExplainer (background=30, nsamples=150) decomposes prediction into per-feature PM contributions.
+
+6. **GenAI Adjustment** — Post-hoc multiplier from Peng et al. 2023, McKinsey 2023, Kalliamvakou 2022. Not trained into the model.
+""")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FOOTER
+# ─────────────────────────────────────────────────────────────────────────────
+n_81_val = art.get("n_cocomo81", 63)
+n_93_val = art.get("n_nasa93", 93)
+mmre_val = art.get("loo_mmre", 0.0)
+st.markdown(f"""
+<div class='app-footer'>
+  <div class='footer-left'>
+    <strong style='color:#333;'>Software Effort Estimator</strong> &nbsp;&middot;&nbsp;
+    Research demo &nbsp;&middot;&nbsp; Mitacs Internship Proposal<br>
+    Training data: COCOMO-81 (n={n_81_val}) &nbsp;&middot;&nbsp;
+    FAHP (Chang 1996) + Weighted-Kernel SVR (Sehra et al. 2018) &nbsp;&middot;&nbsp;
+    LOO-MMRE&nbsp;{mmre_val:.4f} &nbsp;&middot;&nbsp; 80%&nbsp;PI&nbsp;[{PI_LO*100:+.0f}%,&nbsp;{PI_HI*100:+.0f}%]
+  </div>
+  <div class='footer-right'>v0.2-demo</div>
+</div>
+""", unsafe_allow_html=True)
