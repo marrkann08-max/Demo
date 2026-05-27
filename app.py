@@ -428,7 +428,7 @@ N_93     = art.get("n_nasa93",   0)
 FEATURES = [
     "LOC (KLOC)", "RELY", "DATA", "CPLX", "TIME", "STOR",
     "VIRT", "TURN", "ACAP", "AEXP", "PCAP", "VEXP",
-    "LEXP", "MODP", "TOOL", "SCED",
+    "LEXP", "MODP", "TOOL", "SCED", "Dev Mode",
 ]
 FEAT_DESC = {
     "LOC (KLOC)": "Lines of Code (thousands)",
@@ -447,6 +447,7 @@ FEAT_DESC = {
     "MODP": "Modern programming practices",
     "TOOL": "Use of software tools",
     "SCED": "Schedule constraint",
+    "Dev Mode": "Development mode (Organic / Semi-detached / Embedded)",
 }
 RATING_LABELS = ["Very Low", "Low", "Nominal", "High", "Very High"]
 RATING_MAP    = {lbl: i for i, lbl in enumerate(RATING_LABELS)}
@@ -468,11 +469,17 @@ COCOMO_MULT   = {
     "TOOL": [1.24, 1.10, 1.00, 0.91, 0.83],
     "SCED": [1.23, 1.08, 1.00, 1.04, 1.10],
 }
+# Dev mode ordinal encoding — matches train_model.py DEV_MODE_ORD
+DEV_MODE_ORD  = {"Organic": 1.0, "Semi-detached": 2.0, "Embedded": 3.0}
+DEV_MODE_LIST = ["Organic", "Semi-detached", "Embedded"]
 
 
 # ── Pipeline ─────────────────────────────────────────────────────────────────
-def inputs_to_raw(loc, ratings):
-    vec = [loc] + [COCOMO_MULT[f][RATING_MAP[ratings[f]]] for f in FEATURES[1:]]
+def inputs_to_raw(loc, ratings, dev_mode_val):
+    # FEATURES[1:-1] = the 15 COCOMO cost-driver labels (RELY … SCED)
+    # FEATURES[-1]   = "Dev Mode" — handled separately as ordinal
+    vec = [loc] + [COCOMO_MULT[f][RATING_MAP[ratings[f]]] for f in FEATURES[1:-1]]
+    vec.append(DEV_MODE_ORD[dev_mode_val])
     return np.array(vec, dtype=float).reshape(1, -1)
 
 def preprocess(vec_raw):
@@ -722,13 +729,14 @@ def plot_ai_comparison(effort, ai_effort, ai_lo, ai_hi, ai_label):
 
 
 # ── What-if ──────────────────────────────────────────────────────────────────
-def whatif(base_raw, base_effort, ratings):
+def whatif(base_raw, base_effort, ratings, dev_mode_val):
     """
     For each action, compute effort if we move one rating step in the beneficial direction.
     Capability/experience/practice drivers (ACAP, AEXP, PCAP, VEXP, LEXP, MODP, TOOL):
       higher rating → lower multiplier → less effort, so direction = +1 (Nominal→High).
     Stress drivers (CPLX, RELY, TIME, STOR):
       lower rating → lower multiplier → less effort, so direction = -1 (Nominal→Low).
+    Dev Mode is a project constant — not included in what-if.
     """
     improvable = {
         # Capability & practice drivers: improve = move UP the scale (+1)
@@ -751,7 +759,7 @@ def whatif(base_raw, base_effort, ratings):
         nxt = cur + direction
         if 0 <= nxt < 5:
             nr = ratings.copy(); nr[feat] = RATING_LABELS[nxt]
-            ne, _ = predict(inputs_to_raw(base_raw[0, 0], nr))
+            ne, _ = predict(inputs_to_raw(base_raw[0, 0], nr, dev_mode_val))
             saving = base_effort - ne
             if saving > 0.5:
                 results.append(dict(action=label, feature=feat,
@@ -779,6 +787,17 @@ with st.sidebar:
     st.markdown(
         f"<div style='font-size:0.75rem;color:#666666;font-family:monospace;"
         f"margin-top:-0.4rem;margin-bottom:0.9rem;'>{loc} KLOC</div>",
+        unsafe_allow_html=True)
+
+    st.markdown("<div class='sb-section'>Development Mode</div>", unsafe_allow_html=True)
+    dev_mode = st.selectbox(
+        "dev_mode", DEV_MODE_LIST, index=0, label_visibility="collapsed"
+    )
+    st.markdown(
+        f"<div style='font-size:0.72rem;color:#555555;font-family:monospace;"
+        f"margin-top:-0.4rem;margin-bottom:0.9rem;'>"
+        f"{'Organic: a=2.4, b=1.05' if dev_mode=='Organic' else 'Semi-det: a=3.0, b=1.12' if dev_mode=='Semi-detached' else 'Embedded: a=3.6, b=1.20'}"
+        f"</div>",
         unsafe_allow_html=True)
 
     # ── COCOMO cost drivers in collapsible groups ─────────────────────────────
@@ -891,7 +910,7 @@ st.markdown(f"""
 # ══════════════════════════════════════════════════════════════════════════════
 # RESULTS
 # ══════════════════════════════════════════════════════════════════════════════
-vec_raw       = inputs_to_raw(loc, ratings)
+vec_raw       = inputs_to_raw(loc, ratings, dev_mode)
 effort, vec_w = predict(vec_raw)
 eaf = float(np.prod([COCOMO_MULT[f][RATING_MAP[ratings[f]]] for f in COCOMO_MULT]))
 cal_months    = 2.5 * (effort ** 0.38)
@@ -951,7 +970,7 @@ else:
     sv_pm, base_pm = None, None
     top_pos_feats = []
 
-wi_results    = whatif(vec_raw, effort, ratings)
+wi_results    = whatif(vec_raw, effort, ratings, dev_mode)
 top_driver    = top_pos_feats[0] if top_pos_feats else "project size"
 top_saver     = wi_results[0]["feature"] if wi_results else None
 
@@ -995,6 +1014,8 @@ def _rating_tag(feat):
     """Return a short human-readable tag showing the current setting for a feature."""
     if feat == "LOC (KLOC)":
         return f"{loc:.0f} KLOC"
+    if feat == "Dev Mode":
+        return dev_mode
     return ratings.get(feat, "")
 
 ic1, ic2 = st.columns(2)

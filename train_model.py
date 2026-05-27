@@ -37,18 +37,24 @@ warnings.filterwarnings("ignore")
 FEATURE_COLS = [
     "loc", "rely", "data", "cplx", "time", "stor",
     "virt", "turn", "acap", "aexp", "pcap", "vexp",
-    "lexp", "modp", "tool", "sced",
+    "lexp", "modp", "tool", "sced", "dev_mode_ord",
 ]
 FEATURE_NAMES = [
     "LOC (KLOC)", "RELY", "DATA", "CPLX", "TIME", "STOR",
     "VIRT", "TURN", "ACAP", "AEXP", "PCAP", "VEXP",
-    "LEXP", "MODP", "TOOL", "SCED",
+    "LEXP", "MODP", "TOOL", "SCED", "Dev Mode",
 ]
 
 # ── Load COCOMO-81 ─────────────────────────────────────────────────────────────
 csv_path = os.path.join(os.path.dirname(__file__), "cocomo81.csv")
 df_c81   = pd.read_csv(csv_path)
 n_cocomo81_raw = len(df_c81)
+
+# ── Encode development mode (ordinal: organic=1, semidetached=2, embedded=3)
+# log(1)=0, log(2)=0.69, log(3)=1.10 — well-spaced after log transform.
+# Captures the distinct COCOMO base coefficients (a=2.4/3.0/3.6, b=1.05/1.12/1.20).
+DEV_MODE_ORD = {"organic": 1, "semidetached": 2, "embedded": 3}
+df_c81["dev_mode_ord"] = df_c81["dev_mode"].map(DEV_MODE_ORD).astype(float)
 
 # ── Clean and prepare ────────────────────────────────────────────────────────
 df_all = df_c81[FEATURE_COLS + ["actual"]].copy()
@@ -121,8 +127,8 @@ def synthetic_extent_values(mat):
             for (sl, sm, su) in row_sums]
 
 def degree_of_possibility(M1, M2):
-    l1, m1, u1 = M1
-    l2, m2, u2 = M2
+    _,  m1, u1 = M1   # l1 not needed by the Chang (1996) formula
+    l2, m2, _  = M2   # u2 not needed
     if m1 >= m2:
         return 1.0
     if u1 <= l2:          # M1 entirely below M2 → impossible for M1 ≥ M2
@@ -201,16 +207,17 @@ print(f"\nPreprocessing: X_w shape={X_w.shape}  "
 # ─────────────────────────────────────────────────────────────────────────────
 # 3.  HYPERPARAMETER SEARCH  (LOO-MMRE grid)
 # ─────────────────────────────────────────────────────────────────────────────
-C_grid     = [0.5, 1, 5, 10, 50, 100, 200, 500]
-gamma_grid = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, "scale"]
+C_grid       = [0.5, 1, 5, 10, 50, 100, 200, 500]
+gamma_grid   = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, "scale"]
+epsilon_grid = [0.05, 0.1, 0.2]
 
-def loo_mmre_and_errors(C, gamma):
-    """Returns (MMRE, signed_relative_errors) for given C, gamma."""
+def loo_mmre_and_errors(C, gamma, epsilon=0.1):
+    """Returns (MMRE, signed_relative_errors) for given C, gamma, epsilon."""
     loo    = LeaveOneOut()
     errors = []
     sre    = []   # signed relative errors for PI computation
     for train_idx, test_idx in loo.split(X_w):
-        svr = SVR(kernel="rbf", C=C, gamma=gamma, epsilon=0.1)
+        svr = SVR(kernel="rbf", C=C, gamma=gamma, epsilon=epsilon)
         svr.fit(X_w[train_idx], y_sc[train_idx])
         p_sc  = svr.predict(X_w[test_idx])
         p_log = scaler_y.inverse_transform(p_sc.reshape(-1, 1))[0, 0]
@@ -221,35 +228,36 @@ def loo_mmre_and_errors(C, gamma):
         sre.append(re)
     return float(np.mean(errors)), np.array(sre)
 
-def loo_mmre(C, gamma):
-    m, _ = loo_mmre_and_errors(C, gamma)
+def loo_mmre(C, gamma, epsilon=0.1):
+    m, _ = loo_mmre_and_errors(C, gamma, epsilon)
     return m
 
 print("\n── Grid search (LOO-MMRE) ──")
-best_mmre, best_C, best_gamma = 1e9, None, None
+best_mmre, best_C, best_gamma, best_epsilon = 1e9, None, None, 0.1
 
-for C, gam in iterproduct(C_grid, gamma_grid):
-    mmre = loo_mmre(C, gam)
+for C, gam, eps in iterproduct(C_grid, gamma_grid, epsilon_grid):
+    mmre = loo_mmre(C, gam, eps)
     if mmre < best_mmre:
-        best_mmre, best_C, best_gamma = mmre, C, gam
+        best_mmre, best_C, best_gamma, best_epsilon = mmre, C, gam, eps
 
-print(f"Coarse best: LOO-MMRE={best_mmre:.4f}  C={best_C}  gamma={best_gamma}")
+print(f"Coarse best: LOO-MMRE={best_mmre:.4f}  C={best_C}  gamma={best_gamma}  eps={best_epsilon}")
 
-# Fine search
+# Fine search around best coarse result
 if isinstance(best_C, (int, float)):
     C_fine    = [best_C * f for f in [0.3, 0.5, 0.7, 1.0, 1.5, 2.0, 3.0]]
     gam_cands = ([best_gamma * f for f in [0.3, 0.5, 0.7, 1.0, 1.5, 2.0, 3.0]]
                  if isinstance(best_gamma, float) else [best_gamma])
-    for C, gam in iterproduct(C_fine, gam_cands):
-        mmre = loo_mmre(C, gam)
+    eps_cands = sorted({max(0.01, best_epsilon * f) for f in [0.5, 1.0, 2.0]})
+    for C, gam, eps in iterproduct(C_fine, gam_cands, eps_cands):
+        mmre = loo_mmre(C, gam, eps)
         if mmre < best_mmre:
-            best_mmre, best_C, best_gamma = mmre, C, gam
+            best_mmre, best_C, best_gamma, best_epsilon = mmre, C, gam, eps
 
-print(f"Fine   best: LOO-MMRE={best_mmre:.4f}  C={best_C:.4f}  gamma={best_gamma}")
+print(f"Fine   best: LOO-MMRE={best_mmre:.4f}  C={best_C:.4f}  gamma={best_gamma}  eps={best_epsilon:.4f}")
 
 # ── Compute empirical 80% prediction interval from LOO signed errors ──────────
 print("\n── Computing empirical prediction interval ──")
-_, loo_sre = loo_mmre_and_errors(best_C, best_gamma)
+_, loo_sre = loo_mmre_and_errors(best_C, best_gamma, best_epsilon)
 pi_lo_pct  = float(np.percentile(loo_sre, 10))   # 10th pct signed RE
 pi_hi_pct  = float(np.percentile(loo_sre, 90))   # 90th pct signed RE
 print(f"80% PI: [{pi_lo_pct*100:+.1f}%,  {pi_hi_pct*100:+.1f}%] of prediction")
@@ -257,7 +265,7 @@ print(f"80% PI: [{pi_lo_pct*100:+.1f}%,  {pi_hi_pct*100:+.1f}%] of prediction")
 # ─────────────────────────────────────────────────────────────────────────────
 # 4.  FINAL MODEL  (trained on all projects)
 # ─────────────────────────────────────────────────────────────────────────────
-final_model = SVR(kernel="rbf", C=best_C, gamma=best_gamma, epsilon=0.1)
+final_model = SVR(kernel="rbf", C=best_C, gamma=best_gamma, epsilon=best_epsilon)
 final_model.fit(X_w, y_sc)
 
 train_pred_sc  = final_model.predict(X_w)
@@ -286,6 +294,7 @@ artifacts = {
     "best_C":        round(float(best_C), 6),
     "best_gamma":    best_gamma if isinstance(best_gamma, str)
                         else round(float(best_gamma), 6),
+    "best_epsilon":  round(float(best_epsilon), 6),
     "loo_mmre":      round(best_mmre, 4),
     "train_mmre":    round(train_mmre, 4),
     "train_rmse":    round(train_rmse, 2),
@@ -317,6 +326,7 @@ print(f"   LOO-MMRE   : {best_mmre:.4f}")
 print(f"   Train-MMRE : {train_mmre:.4f}")
 print(f"   n_train    : {len(y_raw)}  (COCOMO-81: {n_cocomo81}, NASA-93: {n_nasa93})")
 print(f"   80% PI     : [{pi_lo_pct*100:+.1f}%,  {pi_hi_pct*100:+.1f}%]")
+print(f"   Best HPs   : C={best_C:.4f}  gamma={best_gamma}  epsilon={best_epsilon:.4f}")
 print(f"   FAHP top-3 : {[FEATURE_NAMES[i] for i in np.argsort(fahp_w)[::-1][:3]]}")
 print(f"\nRestart your Streamlit app after running this script.")
 
