@@ -39,7 +39,7 @@ plt.rcParams.update({
 
 st.set_page_config(
     page_title="Software Effort Estimator",
-    page_icon="",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -873,7 +873,6 @@ ratings = dict(
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 
-n_total = art["n_train"]
 st.markdown(f"""
 <div class="page-header">
   <div class="page-title"> &nbsp;Software Effort Estimator</div>

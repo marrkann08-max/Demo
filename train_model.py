@@ -125,12 +125,12 @@ def degree_of_possibility(M1, M2):
     l2, m2, u2 = M2
     if m1 >= m2:
         return 1.0
-    if l1 >= u2:
+    if u1 <= l2:          # M1 entirely below M2 → impossible for M1 ≥ M2
         return 0.0
-    denom = (m2 - l2) - (m1 - u1)
+    denom = (m2 - l2) - (m1 - u1)   # == u1 - m1 + m2 - l2, always > 0 here
     if abs(denom) < 1e-10:
         return 0.0
-    return max(0.0, min(1.0, (l1 - u2) / denom))
+    return max(0.0, min(1.0, (u1 - l2) / denom))   # correct Chang (1996) formula
 
 def consistency_ratio(mat) -> float:
     n     = len(mat)
