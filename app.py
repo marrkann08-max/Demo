@@ -431,23 +431,23 @@ FEATURES = [
     "LEXP", "MODP", "TOOL", "SCED", "Dev Mode",
 ]
 FEAT_DESC = {
-    "LOC (KLOC)": "Lines of Code (thousands)",
-    "RELY": "Required software reliability",
-    "DATA": "Database size relative to program size",
-    "CPLX": "Process complexity",
-    "TIME": "CPU time constraint",
-    "STOR": "Main memory constraint",
-    "VIRT": "Virtual machine volatility",
-    "TURN": "Turnaround time",
-    "ACAP": "Analyst capability",
-    "AEXP": "Application experience",
-    "PCAP": "Programmer capability",
-    "VEXP": "Virtual machine experience",
-    "LEXP": "Language experience",
-    "MODP": "Modern programming practices",
-    "TOOL": "Use of software tools",
-    "SCED": "Schedule constraint",
-    "Dev Mode": "Development mode (Organic / Semi-detached / Embedded)",
+    "LOC (KLOC)":  "Codebase size — or total story points / sprint velocity proxy",
+    "RELY":        "Consequence of failure — SLA breach, financial loss, safety risk",
+    "DATA":        "Data complexity — DB size, ETL pipelines, analytics workloads",
+    "CPLX":        "Algorithmic complexity — ML models, real-time systems, distributed logic",
+    "TIME":        "Execution-time constraint — latency SLAs, high-throughput API requirements",
+    "STOR":        "Memory constraint — edge/embedded targets, serverless, mobile",
+    "VIRT":        "Platform volatility — cloud provider churn, k8s/framework version changes",
+    "TURN":        "Dev cycle turnaround — CI/CD speed, PR review time, build pipeline latency",
+    "ACAP":        "Architect/analyst quality — design decisions, Jira story accuracy, tech debt prevention",
+    "AEXP":        "Domain experience — years in the industry vertical (fintech, health, logistics)",
+    "PCAP":        "Developer capability — sprint velocity, code review quality, GitHub throughput",
+    "VEXP":        "Platform/infra experience — AWS/GCP/Azure, Kubernetes, microservices",
+    "LEXP":        "Language & framework experience — Python, TypeScript, Go, React, FastAPI",
+    "MODP":        "Engineering practices — Agile maturity, TDD, CI/CD discipline, code reviews",
+    "TOOL":        "Dev tooling — Copilot/Cursor adoption, automated testing, deployment pipelines",
+    "SCED":        "Schedule pressure — hard launch deadline, regulatory date, contractual milestone",
+    "Dev Mode":    "Project type: Organic = small familiar-domain team · Semi-detached = mixed · Embedded = hard real-time / safety-critical",
 }
 RATING_LABELS = ["Very Low", "Low", "Nominal", "High", "Very High"]
 RATING_MAP    = {lbl: i for i, lbl in enumerate(RATING_LABELS)}
@@ -494,17 +494,31 @@ def predict(vec_raw):
     return max(float(np.expm1(pl)), 1.0), vw
 
 @st.cache_data(show_spinner=False)
-def compute_shap(vec_w_tuple):
+def compute_shap(vec_raw_tuple):
+    """
+    Compute SHAP values in the ORIGINAL feature space (raw inputs → person-months).
+    The full pipeline (log → MinMaxScale → FAHP-weight → SVR → inverse-scale → expm1)
+    is wrapped into a single function so KernelExplainer works on raw features.
+    This means each SHAP value is directly interpretable as person-month contribution.
+    """
     if not SHAP_AVAILABLE:
         return None, None
-    vec_w = np.array(vec_w_tuple).reshape(1, -1)
-    bg    = shap.sample(X_train, min(30, len(X_train)))
-    def predict_pm(X):
-        ps  = model.predict(X)
-        pls = scaler_y.inverse_transform(ps.reshape(-1, 1)).ravel()
-        return np.expm1(pls)
-    exp  = shap.KernelExplainer(predict_pm, bg)
-    sv   = exp.shap_values(vec_w, nsamples=150, silent=True)
+    X_raw_all = art.get("X_raw", None)
+    if X_raw_all is None:
+        return None, None
+    vec_raw_arr = np.array(vec_raw_tuple).reshape(1, -1)
+    bg = shap.sample(X_raw_all, min(30, len(X_raw_all)))
+
+    def full_pipeline(X):
+        Xl = np.log(np.clip(X, 1e-3, None))
+        Xs = scaler_X.transform(Xl)
+        Xw = Xs * kernel_w
+        ps = model.predict(Xw)
+        pl = scaler_y.inverse_transform(ps.reshape(-1, 1)).ravel()
+        return np.expm1(pl)
+
+    exp = shap.KernelExplainer(full_pipeline, bg)
+    sv  = exp.shap_values(vec_raw_arr, nsamples=150, silent=True)
     return sv[0], float(exp.expected_value)
 
 
@@ -802,27 +816,42 @@ with st.sidebar:
 
     # ── COCOMO cost drivers in collapsible groups ─────────────────────────────
     with st.expander("Product Attributes", expanded=False):
-        rely = st.selectbox("RELY · Required Reliability", RATING_LABELS, index=2)
-        data = st.selectbox("DATA · Database Size",        RATING_LABELS, index=2)
-        cplx = st.selectbox("CPLX · Process Complexity",   RATING_LABELS, index=2)
+        rely = st.selectbox("RELY · Required Reliability", RATING_LABELS, index=2,
+                            help="What happens if the software fails?\nVery Low = minor inconvenience · High = financial loss / SLA breach · Very High = safety-critical / regulatory")
+        data = st.selectbox("DATA · Database Size",        RATING_LABELS, index=2,
+                            help="Volume of data relative to codebase.\nMaps to: DB size, ETL pipeline complexity, analytics workloads, data lake scale")
+        cplx = st.selectbox("CPLX · Process Complexity",   RATING_LABELS, index=2,
+                            help="Algorithmic difficulty of the core logic.\nVery Low = simple CRUD · High = ML models / distributed systems · Very High = real-time AI, custom algorithms")
 
     with st.expander("Computer Constraints", expanded=False):
-        time_ = st.selectbox("TIME · CPU Time Constraint",  RATING_LABELS, index=2)
-        stor  = st.selectbox("STOR · Memory Constraint",    RATING_LABELS, index=2)
-        virt  = st.selectbox("VIRT · VM Volatility",        RATING_LABELS, index=2)
-        turn  = st.selectbox("TURN · Turnaround Time",      RATING_LABELS, index=2)
+        time_ = st.selectbox("TIME · CPU Time Constraint",  RATING_LABELS, index=2,
+                             help="How tight are execution-time / latency SLAs?\nNominal = standard web app · High = sub-100ms API · Very High = real-time processing, HFT")
+        stor  = st.selectbox("STOR · Memory Constraint",    RATING_LABELS, index=2,
+                             help="Memory-limited deployment targets.\nNominal = standard cloud VMs · High = serverless/mobile · Very High = edge devices, embedded hardware")
+        virt  = st.selectbox("VIRT · VM Volatility",        RATING_LABELS, index=2,
+                             help="How often does the underlying platform change?\nLow = stable cloud infra · High = frequent k8s upgrades · Very High = rapid provider / framework migrations")
+        turn  = st.selectbox("TURN · Turnaround Time",      RATING_LABELS, index=2,
+                             help="Dev environment feedback speed.\nMaps to: CI/CD pipeline time, PR review turnaround, build latency, local test cycle time")
 
     with st.expander("Team & Personnel", expanded=False):
-        acap = st.selectbox("ACAP · Analyst Capability",    RATING_LABELS, index=2)
-        aexp = st.selectbox("AEXP · App Experience",        RATING_LABELS, index=2)
-        pcap = st.selectbox("PCAP · Programmer Capability", RATING_LABELS, index=2)
-        vexp = st.selectbox("VEXP · VM Experience",         RATING_LABELS, index=2)
-        lexp = st.selectbox("LEXP · Language Experience",   RATING_LABELS, index=2)
+        acap = st.selectbox("ACAP · Analyst Capability",    RATING_LABELS, index=2,
+                            help="Quality of architects and senior analysts.\nMaps to: system design quality, Jira story accuracy, tech debt prevention, API contract clarity")
+        aexp = st.selectbox("AEXP · App Experience",        RATING_LABELS, index=2,
+                            help="Years of experience in this specific domain.\nMaps to: industry vertical experience (fintech, healthcare, logistics, e-commerce)")
+        pcap = st.selectbox("PCAP · Programmer Capability", RATING_LABELS, index=2,
+                            help="Developer coding quality and throughput.\nMaps to: sprint velocity, code review standards, PR merge quality, GitHub contribution metrics")
+        vexp = st.selectbox("VEXP · VM Experience",         RATING_LABELS, index=2,
+                            help="Platform and infrastructure familiarity.\nMaps to: AWS/GCP/Azure experience, Kubernetes, microservices, container orchestration")
+        lexp = st.selectbox("LEXP · Language Experience",   RATING_LABELS, index=2,
+                            help="Proficiency in the primary language and framework stack.\nMaps to: Python, TypeScript, Go, Rust, React, FastAPI, Django, Spring Boot")
 
     with st.expander("Project Practices", expanded=False):
-        modp = st.selectbox("MODP · Modern Practices",    RATING_LABELS, index=2)
-        tool = st.selectbox("TOOL · Software Tools",      RATING_LABELS, index=2)
-        sced = st.selectbox("SCED · Schedule Constraint", RATING_LABELS, index=2)
+        modp = st.selectbox("MODP · Modern Practices",    RATING_LABELS, index=2,
+                            help="Software engineering maturity.\nMaps to: Agile/Scrum adoption, TDD coverage, code review culture, retrospective action follow-through")
+        tool = st.selectbox("TOOL · Software Tools",      RATING_LABELS, index=2,
+                            help="Quality and adoption of dev tooling.\nMaps to: GitHub Copilot/Cursor usage, automated testing, deployment pipelines, observability/monitoring")
+        sced = st.selectbox("SCED · Schedule Constraint", RATING_LABELS, index=2,
+                            help="Deadline pressure relative to nominal schedule.\nNominal = flexible · High = fixed product launch · Very High = hard regulatory / contractual deadline")
 
     st.markdown("<hr style='border:none;border-top:1px solid #27272A;margin:0.8rem 0;'>",
                 unsafe_allow_html=True)
@@ -964,7 +993,7 @@ plt.close(_fig_cb)
 # ── Executive Summary ─────────────────────────────────────────────────────────
 if SHAP_AVAILABLE:
     with st.spinner("Computing SHAP values…"):
-        sv_pm, base_pm = compute_shap(tuple(vec_w.ravel().tolist()))
+        sv_pm, base_pm = compute_shap(tuple(vec_raw.ravel().tolist()))
     top_pos_feats = [FEATURES[i] for i in np.argsort(sv_pm)[::-1] if sv_pm[i] > 0]
 else:
     sv_pm, base_pm = None, None
