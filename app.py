@@ -976,11 +976,13 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-_nav1, _nav2, _nav3 = st.columns([1, 1, 2])
-with _nav1:
-    st.page_link("pages/2_GitHub_Model.py", label="Open GitHub Model", icon="📈")
-with _nav2:
-    st.page_link("pages/3_Your_Data.py", label="Your Data — Mitacs Pitch", icon="🏢")
+st.markdown("""
+<div style='font-size:0.82rem;color:#444;padding:0.55rem 0.9rem;
+background:#f0f7ff;border-radius:4px;border:1px solid #c8dcf5;margin-bottom:1rem;'>
+  <strong>Navigate:</strong> &nbsp; Use the <strong>sidebar on the left</strong>
+  to open the <strong>GitHub Model</strong> or <strong>Your Data</strong> pages.
+</div>
+""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RESULTS  (COCOMO-81 estimator — main content)
