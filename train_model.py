@@ -57,7 +57,7 @@ DEV_MODE_ORD = {"organic": 1, "semidetached": 2, "embedded": 3}
 df_c81["dev_mode_ord"] = df_c81["dev_mode"].map(DEV_MODE_ORD).astype(float)
 
 # ── Clean and prepare ────────────────────────────────────────────────────────
-df_all = df_c81[FEATURE_COLS + ["actual"]].copy()
+df_all = df_c81[FEATURE_COLS + ["actual", "dev_mode"]].copy()
 df_all = df_all.dropna()
 df_all = df_all[(df_all[FEATURE_COLS] > 0).all(axis=1)]
 df_all = df_all[df_all["actual"] > 0]
@@ -262,6 +262,48 @@ pi_lo_pct  = float(np.percentile(loo_sre, 10))   # 10th pct signed RE
 pi_hi_pct  = float(np.percentile(loo_sre, 90))   # 90th pct signed RE
 print(f"80% PI: [{pi_lo_pct*100:+.1f}%,  {pi_hi_pct*100:+.1f}%] of prediction")
 
+# ── PRED(N): fraction of predictions within N% of actual ──────────────────────
+loo_abs_re = np.abs(loo_sre)
+pred25 = float(np.mean(loo_abs_re <= 0.25))
+pred50 = float(np.mean(loo_abs_re <= 0.50))
+print(f"PRED(25): {pred25*100:.1f}%  ({int(round(pred25*len(y_raw)))}/{len(y_raw)} projects within 25%)")
+print(f"PRED(50): {pred50*100:.1f}%  ({int(round(pred50*len(y_raw)))}/{len(y_raw)} projects within 50%)")
+
+# ── Per-mode MMRE breakdown ────────────────────────────────────────────────────
+print("\n── Per-mode MMRE ──")
+dev_mode_col = df_all["dev_mode"].values
+mode_mmre_results = {}
+for mode_key, mode_label in [("organic","Organic"),("semidetached","Semi-detached"),("embedded","Embedded")]:
+    mask = dev_mode_col == mode_key
+    if mask.sum() > 0:
+        m = float(np.mean(loo_abs_re[mask]))
+        p25m = float(np.mean(loo_abs_re[mask] <= 0.25))
+        mode_mmre_results[mode_key] = {"mmre": round(m,4), "n": int(mask.sum()), "pred25": round(p25m,4)}
+        print(f"  {mode_label:>14s}: n={mask.sum():>2d}  MMRE={m:.4f}  PRED(25)={p25m*100:.1f}%")
+
+# ── Ablation: LOO-MMRE without FAHP weighting ─────────────────────────────────
+print("\n── Ablation: SVR without FAHP weights (uniform) ──")
+def loo_mmre_ablation():
+    loo    = LeaveOneOut()
+    errors = []
+    for train_idx, test_idx in loo.split(X_sc):
+        svr = SVR(kernel="rbf", C=best_C, gamma=best_gamma, epsilon=best_epsilon)
+        svr.fit(X_sc[train_idx], y_sc[train_idx])
+        p_sc2 = svr.predict(X_sc[test_idx])
+        p_log = scaler_y.inverse_transform(p_sc2.reshape(-1,1))[0,0]
+        p_pm  = max(float(np.expm1(p_log)), 0.1)
+        errors.append(abs(p_pm - y_raw[test_idx[0]]) / y_raw[test_idx[0]])
+    return float(np.mean(errors))
+
+ablation_mmre    = loo_mmre_ablation()
+fahp_improve_pct = (ablation_mmre - best_mmre) / ablation_mmre * 100
+print(f"Without FAHP: LOO-MMRE = {ablation_mmre:.4f}")
+print(f"With    FAHP: LOO-MMRE = {best_mmre:.4f}  (FAHP reduces error by {fahp_improve_pct:.1f}%)")
+
+nasa93_mmre    = None
+nasa93_pred25  = None
+n_nasa93_valid = 0
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 4.  FINAL MODEL  (trained on all projects)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -276,6 +318,30 @@ train_rmse     = float(np.sqrt(np.mean((y_raw - train_pred_pm) ** 2)))
 
 print(f"\nFinal model — LOO-MMRE={best_mmre:.4f}  train MMRE={train_mmre:.4f}  "
       f"train RMSE={train_rmse:.1f} PM")
+
+# ── Cross-dataset validation on NASA-93 ───────────────────────────────────────
+nasa93_path = os.path.join(os.path.dirname(__file__), "nasa93.csv")
+if os.path.exists(nasa93_path):
+    print("\n── Cross-dataset validation: train=COCOMO-81, test=NASA-93 ──")
+    df_n93 = pd.read_csv(nasa93_path)
+    df_n93["dev_mode_ord"] = df_n93["dev_mode"].map(DEV_MODE_ORD).astype(float)
+    df_n93_clean = df_n93[FEATURE_COLS + ["actual"]].dropna()
+    df_n93_clean = df_n93_clean[(df_n93_clean[FEATURE_COLS] > 0).all(axis=1)]
+    df_n93_clean = df_n93_clean[df_n93_clean["actual"] > 0]
+    n_nasa93_valid = len(df_n93_clean)
+    if n_nasa93_valid > 0:
+        X_n93_raw = df_n93_clean[FEATURE_COLS].values.astype(float)
+        y_n93_raw = df_n93_clean["actual"].values.astype(float)
+        X_n93_log = np.log(np.clip(X_n93_raw, 1e-3, None))
+        X_n93_sc  = scaler_X.transform(X_n93_log)
+        X_n93_w   = X_n93_sc * kernel_w
+        p_n93_sc  = final_model.predict(X_n93_w)
+        p_n93_log = scaler_y.inverse_transform(p_n93_sc.reshape(-1,1)).ravel()
+        p_n93_pm  = np.expm1(p_n93_log)
+        n93_re    = np.abs(y_n93_raw - p_n93_pm) / y_n93_raw
+        nasa93_mmre   = float(np.mean(n93_re))
+        nasa93_pred25 = float(np.mean(n93_re <= 0.25))
+        print(f"NASA-93: n={n_nasa93_valid}  MMRE={nasa93_mmre:.4f}  PRED(25)={nasa93_pred25*100:.1f}%")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 5.  SAVE model.pkl
@@ -307,6 +373,16 @@ artifacts = {
     "pi_lo_pct":     pi_lo_pct,
     "pi_hi_pct":     pi_hi_pct,
 
+    # Extended evaluation metrics
+    "pred25":            round(pred25, 4),
+    "pred50":            round(pred50, 4),
+    "ablation_mmre":     round(ablation_mmre, 4),
+    "fahp_improve_pct":  round(fahp_improve_pct, 1),
+    "mode_mmre":         mode_mmre_results,
+    "nasa93_mmre":       round(nasa93_mmre, 4) if nasa93_mmre is not None else None,
+    "nasa93_pred25":     round(nasa93_pred25, 4) if nasa93_pred25 is not None else None,
+    "n_nasa93_valid":    n_nasa93_valid,
+
     # Project-level weights for explainability
     "project_weights_effort": W_effort,
     "project_weights_loc":    W_loc,
@@ -322,12 +398,18 @@ with open(out_path, "wb") as f:
     pickle.dump(artifacts, f)
 
 print(f"\n✓  model.pkl saved  ({out_path})")
-print(f"   LOO-MMRE   : {best_mmre:.4f}")
-print(f"   Train-MMRE : {train_mmre:.4f}")
-print(f"   n_train    : {len(y_raw)}  (COCOMO-81: {n_cocomo81}, NASA-93: {n_nasa93})")
-print(f"   80% PI     : [{pi_lo_pct*100:+.1f}%,  {pi_hi_pct*100:+.1f}%]")
-print(f"   Best HPs   : C={best_C:.4f}  gamma={best_gamma}  epsilon={best_epsilon:.4f}")
-print(f"   FAHP top-3 : {[FEATURE_NAMES[i] for i in np.argsort(fahp_w)[::-1][:3]]}")
+print(f"   LOO-MMRE        : {best_mmre:.4f}")
+print(f"   PRED(25)        : {pred25*100:.1f}%")
+print(f"   PRED(50)        : {pred50*100:.1f}%")
+print(f"   Ablation MMRE   : {ablation_mmre:.4f}  (no FAHP)")
+print(f"   FAHP improvement: {fahp_improve_pct:.1f}%")
+if nasa93_mmre is not None:
+    print(f"   NASA-93 MMRE    : {nasa93_mmre:.4f}  (cross-dataset, n={n_nasa93_valid})")
+print(f"   Train-MMRE      : {train_mmre:.4f}")
+print(f"   n_train         : {len(y_raw)}  (COCOMO-81: {n_cocomo81})")
+print(f"   80% PI          : [{pi_lo_pct*100:+.1f}%,  {pi_hi_pct*100:+.1f}%]")
+print(f"   Best HPs        : C={best_C:.4f}  gamma={best_gamma}  epsilon={best_epsilon:.4f}")
+print(f"   FAHP top-3      : {[FEATURE_NAMES[i] for i in np.argsort(fahp_w)[::-1][:3]]}")
 print(f"\nRestart your Streamlit app after running this script.")
 
 # ── Sanity check ──────────────────────────────────────────────────────────────
