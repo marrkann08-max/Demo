@@ -35,13 +35,14 @@ html, body, [class*="css"] { font-family: "Inter", system-ui, sans-serif; }
 """, unsafe_allow_html=True)
 
 # ── Load model ────────────────────────────────────────────────────────────────
+ROOT  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_path = os.path.join(ROOT, "github_model.pkl")
+
 @st.cache_data(show_spinner=False)
 def load(mtime):
-    path = os.path.join(os.path.dirname(__file__), "..", "github_model.pkl")
-    with open(path, "rb") as f:
+    with open(os.path.join(ROOT, "github_model.pkl"), "rb") as f:
         return pickle.load(f)
 
-_path = os.path.join(os.path.dirname(__file__), "..", "github_model.pkl")
 if not os.path.exists(_path):
     st.error("github_model.pkl not found. Run `python train_github_model.py`.")
     st.stop()

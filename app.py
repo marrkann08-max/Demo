@@ -1064,6 +1064,13 @@ else:
     with tab1:
         _fig_bar = plot_shap_bar(sv_pm, effort)
         _ = st.pyplot(_fig_bar, use_container_width=True); plt.close(_fig_bar)
+        st.markdown("""<div class='insight-note' style='margin-top:0.4rem;'>
+            <strong>Reading SHAP values:</strong> Each bar is the contribution of that feature
+            relative to the model's <em>average prediction across all 63 training projects</em>
+            — not relative to zero effort. A "Nominal" rating can still push effort up if the
+            training average for that driver was High or Very High
+            (COCOMO-81 teams were experienced 1980s defense engineers).
+        </div>""", unsafe_allow_html=True)
     with tab2:
         _fig_fvs = plot_fahp_vs_shap(sv_pm)
         _ = st.pyplot(_fig_fvs, use_container_width=True); plt.close(_fig_fvs)
