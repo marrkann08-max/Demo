@@ -3,7 +3,6 @@ import numpy as np
 import pickle, os, warnings
 warnings.filterwarnings("ignore")
 
-st.set_page_config(page_title="GitHub Model", page_icon="📊", layout="wide")
 
 # ── Shared CSS (minimal) ──────────────────────────────────────────────────────
 st.markdown("""
