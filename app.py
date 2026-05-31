@@ -967,7 +967,7 @@ github_row = f"<tr><td><strong>GitHub open-source</strong> (2021–present)</td>
 company_row = "<tr><td><strong>Your company data</strong></td><td>—</td><td style='font-family:monospace;color:#BF6000;font-weight:700;'>lower ↓</td><td style='font-family:monospace;color:#BF6000;'>higher ↑</td><td>The Mitacs deliverable</td></tr>"
 
 st.markdown(f"""
-<div style='background:#fff;border:1px solid #e2e2e2;border-radius:8px;padding:1rem 1.2rem;margin-bottom:1.2rem;'>
+<div style='background:#fff;border:1px solid #e2e2e2;border-radius:8px;padding:1rem 1.2rem;margin-bottom:0.6rem;'>
   <div style='font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;color:#888;margin-bottom:0.6rem;'>Research Trajectory — Why Company Data Matters</div>
   <table class='data-table'>
     <thead><tr><th>Dataset</th><th>n</th><th>LOO-MMRE</th><th>PRED(25)</th><th>Validation</th></tr></thead>
@@ -975,6 +975,12 @@ st.markdown(f"""
   </table>
 </div>
 """, unsafe_allow_html=True)
+
+_nav1, _nav2, _nav3 = st.columns([1, 1, 2])
+with _nav1:
+    st.page_link("pages/2_GitHub_Model.py", label="Open GitHub Model", icon="📈")
+with _nav2:
+    st.page_link("pages/3_Your_Data.py", label="Your Data — Mitacs Pitch", icon="🏢")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RESULTS  (COCOMO-81 estimator — main content)
