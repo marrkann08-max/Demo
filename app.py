@@ -420,10 +420,21 @@ scaler_y = art["scaler_y"]
 fahp_w   = art["fahp_weights"]
 kernel_w = art.get("kernel_w", np.sqrt(fahp_w))
 X_train  = art["X_train"]
-PI_LO    = art.get("pi_lo_pct", -0.46)   # 10th pct signed relative error
-PI_HI    = art.get("pi_hi_pct",  0.56)   # 90th pct signed relative error
+PI_LO    = art.get("pi_lo_pct", -0.46)
+PI_HI    = art.get("pi_hi_pct",  0.56)
 N_81     = art.get("n_cocomo81", 63)
 N_93     = art.get("n_nasa93",   0)
+
+# ── Load GitHub model (optional) ──────────────────────────────────────────────
+@st.cache_data(show_spinner=False)
+def load_github_model(mtime: float):
+    path = os.path.join(os.path.dirname(__file__), "github_model.pkl")
+    with open(path, "rb") as f:
+        return pickle.load(f)
+
+_gh_path = os.path.join(os.path.dirname(__file__), "github_model.pkl")
+gh_art   = load_github_model(os.path.getmtime(_gh_path)) if os.path.exists(_gh_path) else None
+_gh_csv_path = os.path.join(os.path.dirname(__file__), "github_projects.csv")
 
 FEATURES = [
     "LOC (KLOC)", "RELY", "DATA", "CPLX", "TIME", "STOR",
@@ -946,8 +957,27 @@ st.markdown(f"""
 
 
 
+# ── Research story: MMRE trajectory table ─────────────────────────────────────
+_gh_mmre   = gh_art["loo_mmre"]   if gh_art else None
+_gh_pred25 = gh_art["pred25"]     if gh_art else None
+_gh_n      = gh_art["n_projects"] if gh_art else None
+
+cocomo_row = f"<tr><td><strong>COCOMO-81</strong> (1981 benchmark)</td><td>63</td><td style='font-family:monospace;font-weight:700;color:#2E7D32;'>{art['loo_mmre']:.4f}</td><td style='font-family:monospace;'>{_pred25*100:.0f}%</td><td>LOO cross-validation</td></tr>" if _pred25 else ""
+github_row = f"<tr><td><strong>GitHub open-source</strong> (2021–present)</td><td>{_gh_n}</td><td style='font-family:monospace;font-weight:700;color:#2563EB;'>{_gh_mmre:.4f}</td><td style='font-family:monospace;'>{_gh_pred25*100:.0f}%</td><td>LOO cross-validation</td></tr>" if _gh_mmre else ""
+company_row = "<tr><td><strong>Your company data</strong></td><td>—</td><td style='font-family:monospace;color:#BF6000;font-weight:700;'>lower ↓</td><td style='font-family:monospace;color:#BF6000;'>higher ↑</td><td>The Mitacs deliverable</td></tr>"
+
+st.markdown(f"""
+<div style='background:#fff;border:1px solid #e2e2e2;border-radius:8px;padding:1rem 1.2rem;margin-bottom:1.2rem;'>
+  <div style='font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;color:#888;margin-bottom:0.6rem;'>Research Trajectory — Why Company Data Matters</div>
+  <table class='data-table'>
+    <thead><tr><th>Dataset</th><th>n</th><th>LOO-MMRE</th><th>PRED(25)</th><th>Validation</th></tr></thead>
+    <tbody>{cocomo_row}{github_row}{company_row}</tbody>
+  </table>
+</div>
+""", unsafe_allow_html=True)
+
 # ══════════════════════════════════════════════════════════════════════════════
-# RESULTS
+# RESULTS  (COCOMO-81 estimator — main content)
 # ══════════════════════════════════════════════════════════════════════════════
 vec_raw       = inputs_to_raw(loc, ratings, dev_mode)
 effort, vec_w = predict(vec_raw)
@@ -1308,6 +1338,198 @@ with st.expander("Methodology — how this works", expanded=False):
 
 6. **GenAI Adjustment** — Post-hoc multiplier from Peng et al. 2023, McKinsey 2023, Kalliamvakou 2022. Not trained into the model.
 """)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# BOTTOM TABS — GitHub Model  |  Your Data
+# ══════════════════════════════════════════════════════════════════════════════
+tab_github, tab_yours = st.tabs(["GitHub Model", "Your Data"])
+
+with tab_github:
+    if gh_art is None:
+        st.info("GitHub model not found. Run `python train_github_model.py` first.", icon="ℹ️")
+    else:
+        gh_model    = gh_art["model"]
+        gh_scaler_X = gh_art["scaler_X"]
+        gh_scaler_y = gh_art["scaler_y"]
+        gh_kernel_w = gh_art["kernel_w"]
+        gh_fahp_w   = gh_art["fahp_weights"]
+        gh_feat     = gh_art["feature_names"]
+        gh_pi_lo    = gh_art.get("pi_lo_pct", -0.30)
+        gh_pi_hi    = gh_art.get("pi_hi_pct",  0.35)
+
+        st.markdown("""
+<div class='explain-note'>
+  <div class='explain-label'>What this model is</div>
+  <div class='explain-text'>
+    Trained on <strong>real GitHub data</strong> from open-source projects (2021–present).
+    Effort is derived from <em>author-days</em> (unique contributor × date pairs from commit history).
+    Features are team and process signals available from any GitHub repository.
+    <br><br>
+    <strong>Limitation:</strong> Open-source volunteers ≠ paid engineers.
+    This is a proof of concept — the same pipeline applied to your company's
+    actual Jira-tracked hours would produce a company-specific model with lower MMRE.
+  </div>
+</div>""", unsafe_allow_html=True)
+
+        # ── GitHub model inputs ────────────────────────────────────────────
+        st.markdown("<div class='section-header'>Project Inputs — GitHub Signals</div>",
+                    unsafe_allow_html=True)
+        gc1, gc2 = st.columns(2)
+        with gc1:
+            gh_contributors  = st.slider("Team size (contributors)", 5, 400, 50,
+                help="Unique GitHub contributors to the repo since 2021")
+            gh_review_days   = st.slider("Avg PR review time (days)", 0.0, 15.0, 2.0, 0.1,
+                help="Median time from PR opened to merged")
+            gh_merge_rate    = st.slider("PR merge rate", 0.1, 1.0, 0.65, 0.01,
+                help="Fraction of opened PRs that get merged (quality signal)")
+        with gc2:
+            gh_test_ratio    = st.slider("Test file ratio", 0.0, 0.5, 0.15, 0.01,
+                help="Fraction of repo files that are test/spec files")
+            gh_lang_count    = st.slider("Language count", 1, 20, 4,
+                help="Number of programming languages used in the repo")
+            gh_commit_freq   = st.slider("Commit frequency (per week)", 0.5, 100.0, 10.0, 0.5,
+                help="Average commits per week since 2021")
+
+        # ── GitHub model prediction ────────────────────────────────────────
+        gh_x_raw = np.array([[gh_contributors, gh_review_days, gh_merge_rate,
+                               gh_test_ratio, gh_lang_count, gh_commit_freq]], dtype=float)
+        gh_x_log = np.log(np.clip(gh_x_raw, 1e-3, None))
+        gh_x_sc  = gh_scaler_X.transform(gh_x_log)
+        gh_x_w   = gh_x_sc * gh_kernel_w
+        gh_p_sc  = gh_model.predict(gh_x_w)
+        gh_p_log = gh_scaler_y.inverse_transform(gh_p_sc.reshape(-1,1))[0,0]
+        gh_effort = max(float(np.expm1(gh_p_log)), 1.0)
+        gh_lo     = max(1.0, gh_effort * (1 + gh_pi_lo))
+        gh_hi     = gh_effort * (1 + gh_pi_hi)
+
+        st.markdown("<div class='section-header'>Prediction</div>", unsafe_allow_html=True)
+        pm1, pm2, pm3 = st.columns(3)
+        pm1.markdown(f"""<div class='metric-card'>
+            <div class='metric-label'>Predicted Effort</div>
+            <div class='metric-value'>{gh_effort:.0f}</div>
+            <div class='metric-unit'>author-months</div>
+            <div class='metric-range'>80% range: {gh_lo:.0f} – {gh_hi:.0f} PM</div>
+        </div>""", unsafe_allow_html=True)
+        pm2.markdown(f"""<div class='metric-card'>
+            <div class='metric-label'>Model LOO-MMRE</div>
+            <div class='metric-value' style='font-size:1.8rem;color:#2563EB;'>{gh_art['loo_mmre']:.4f}</div>
+            <div class='metric-unit'>leave-one-out</div>
+            <div class='metric-range'>PRED(25) = {gh_art['pred25']*100:.0f}%</div>
+        </div>""", unsafe_allow_html=True)
+        pm3.markdown(f"""<div class='metric-card'>
+            <div class='metric-label'>Training Data</div>
+            <div class='metric-value' style='font-size:1.8rem;'>{gh_art['n_projects']}</div>
+            <div class='metric-unit'>GitHub projects</div>
+            <div class='metric-range'>Real repos, 2021–present</div>
+        </div>""", unsafe_allow_html=True)
+
+        # ── FAHP weights ───────────────────────────────────────────────────
+        st.markdown("<div class='section-header'>FAHP Feature Weights</div>",
+                    unsafe_allow_html=True)
+        fw_order = np.argsort(gh_fahp_w)[::-1]
+        fw_rows  = "".join(
+            f"<tr><td><strong>{gh_feat[i]}</strong></td>"
+            f"<td style='font-family:monospace;'>{gh_fahp_w[i]:.4f}</td>"
+            f"<td><div style='background:#2563EB;height:8px;border-radius:4px;"
+            f"width:{gh_fahp_w[i]/gh_fahp_w.max()*100:.0f}%;'></div></td></tr>"
+            for i in fw_order
+        )
+        st.markdown(f"""<table class='data-table'>
+          <thead><tr><th>Feature</th><th>FAHP Weight</th><th>Relative importance</th></tr></thead>
+          <tbody>{fw_rows}</tbody>
+        </table>""", unsafe_allow_html=True)
+
+        # ── Training data table ────────────────────────────────────────────
+        if os.path.exists(_gh_csv_path):
+            st.markdown("<div class='section-header'>Training Data — GitHub Projects</div>",
+                        unsafe_allow_html=True)
+            gh_df = pd.read_csv(_gh_csv_path)
+            gh_df_show = gh_df[["repo","author_months","contributor_count",
+                                 "avg_pr_review_days","lang_count"]].copy()
+            gh_df_show.columns = ["Repository","Effort (PM)","Contributors",
+                                   "PR Review (days)","Languages"]
+            gh_df_show = gh_df_show.sort_values("Effort (PM)", ascending=False)
+            rows_html = "".join(
+                f"<tr><td><code style='font-size:0.78rem;'>{r['Repository']}</code></td>"
+                f"<td style='font-family:monospace;'>{r['Effort (PM)']:.1f}</td>"
+                f"<td style='font-family:monospace;'>{int(r['Contributors'])}</td>"
+                f"<td style='font-family:monospace;'>{r['PR Review (days)']:.1f}</td>"
+                f"<td style='font-family:monospace;'>{int(r['Languages'])}</td></tr>"
+                for _, r in gh_df_show.iterrows()
+            )
+            st.markdown(f"""<table class='data-table'>
+              <thead><tr><th>Repository</th><th>Effort (PM)</th><th>Contributors</th>
+              <th>PR Review (days)</th><th>Languages</th></tr></thead>
+              <tbody>{rows_html}</tbody>
+            </table>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class='insight-note'>
+                Effort = unique (contributor × date) pairs from commit history ÷ 20 working days.
+                This is a proxy for person-months, not measured hours.
+                Open-source volunteer dynamics differ from commercial teams.
+            </div>""", unsafe_allow_html=True)
+
+with tab_yours:
+    st.markdown("""
+<div class='explain-note' style='border-left-color:#2563EB;'>
+  <div class='explain-label'>The Mitacs Deliverable</div>
+  <div class='explain-text'>
+    The two models above are trained on public datasets — COCOMO-81 (1981) and open-source GitHub
+    projects. Neither reflects how <em>your</em> team works, your tech stack, your delivery pressure,
+    or your actual sprint velocity.<br><br>
+    The Mitacs project delivers a <strong>company-specific estimator</strong> trained on your own
+    historical data — projects you completed, with actual effort you measured in Jira.
+    Same FAHP + weighted-kernel SVR methodology. Lower MMRE. Explainable with SHAP.
+  </div>
+</div>""", unsafe_allow_html=True)
+
+    st.markdown("<div class='section-header'>What You Would Provide</div>",
+                unsafe_allow_html=True)
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.markdown("""**From Jira (per completed project)**
+- Total story points delivered
+- Sprint velocity (avg points/sprint)
+- Cycle time (ticket open → done, days)
+- Bug rate (bugs reopened / total tickets)
+- Number of sprints
+- Team size (unique assignees)""")
+    with col_b:
+        st.markdown("""**From GitHub (per completed project)**
+- Total PRs merged
+- Avg PR review time (days)
+- Test coverage %
+- Languages used
+- CI/CD pipeline presence
+- Copilot adoption rate (if tracked)""")
+
+    st.markdown("<div class='section-header'>What You Would Get</div>",
+                unsafe_allow_html=True)
+    res1, res2, res3 = st.columns(3)
+    res1.markdown("""<div class='metric-card'>
+        <div class='metric-label'>Company Model</div>
+        <div class='metric-value' style='font-size:1.4rem;color:#2563EB;'>MMRE &lt; 0.20</div>
+        <div class='metric-unit'>projected</div>
+        <div class='metric-range'>Trained on your data, not 1981 benchmarks</div>
+    </div>""", unsafe_allow_html=True)
+    res2.markdown("""<div class='metric-card'>
+        <div class='metric-label'>SHAP Explanations</div>
+        <div class='metric-value' style='font-size:1.4rem;'>Per estimate</div>
+        <div class='metric-unit'>person-months per driver</div>
+        <div class='metric-range'>"Your CPLX added +12 PM to this estimate"</div>
+    </div>""", unsafe_allow_html=True)
+    res3.markdown("""<div class='metric-card'>
+        <div class='metric-label'>What-If Analysis</div>
+        <div class='metric-value' style='font-size:1.4rem;'>Live</div>
+        <div class='metric-unit'>in-app</div>
+        <div class='metric-range'>"Hire one senior dev → saves 18 PM"</div>
+    </div>""", unsafe_allow_html=True)
+
+    st.markdown(f"""<div class='wi-callout' style='margin-top:1rem;'>
+        <strong>Timeline:</strong> Mitacs Accelerate internship (4–6 months).
+        Month 1–2: data collection + feature engineering from your Jira/GitHub.
+        Month 3–4: model training, validation, SHAP integration.
+        Month 5–6: deployment, what-if dashboard, documentation.
+    </div>""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FOOTER

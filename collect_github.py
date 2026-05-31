@@ -18,6 +18,7 @@ SINCE   = "2021-01-01T00:00:00Z"   # 3-year window of modern development
 
 # ── Curated repos: medium-sized, team projects, active PR workflow ─────────────
 REPOS = [
+    # ── Python web / async ──────────────────────────────────────────────────
     "psf/requests",
     "pallets/flask",
     "tiangolo/fastapi",
@@ -29,25 +30,107 @@ REPOS = [
     "celery/celery",
     "scrapy/scrapy",
     "encode/django-rest-framework",
+    "encode/starlette",
+    "encode/uvicorn",
+    "aiohttp/aiohttp",
+    "tornadoweb/tornado",
+    "falconry/falcon",
+    "pallets/werkzeug",
+    # ── Python data / ML ────────────────────────────────────────────────────
     "huggingface/datasets",
     "streamlit/streamlit",
     "plotly/plotly.py",
+    "numpy/numpy",
+    "matplotlib/matplotlib",
+    "scikit-learn/scikit-learn",
+    "Lightning-AI/lightning",
+    "mlflow/mlflow",
+    "prefecthq/prefect",
+    "pola-rs/polars",
+    # ── Python tooling ──────────────────────────────────────────────────────
     "python-poetry/poetry",
     "pre-commit/pre-commit",
-    "docker/compose",
+    "psf/black",
+    "astral-sh/ruff",
+    "pypa/pip",
+    "sphinx-doc/sphinx",
+    "mkdocs/mkdocs",
+    "Delgan/loguru",
+    "tiangolo/typer",
+    "httpie/cli",
+    "gitpython-developers/GitPython",
+    "beetbox/beets",
+    # ── JavaScript / TypeScript ─────────────────────────────────────────────
     "expressjs/express",
     "axios/axios",
     "vitejs/vite",
+    "nestjs/nest",
+    "sveltejs/svelte",
+    "trpc/trpc",
+    "prisma/prisma",
+    # ── Go ──────────────────────────────────────────────────────────────────
     "gin-gonic/gin",
     "gofiber/fiber",
-    "gitpython-developers/GitPython",
-    "sqlalchemy/sqlalchemy",
-    "encode/starlette",
-    "psf/black",
-    "astral-sh/ruff",
-    "pallets/werkzeug",
-    "beetbox/beets",
+    "cli/cli",
+    "helm/helm",
+    "prometheus/prometheus",
+    "grafana/loki",
+    "charmbracelet/bubbletea",
+    # ── Rust ────────────────────────────────────────────────────────────────
+    "BurntSushi/ripgrep",
+    "sharkdp/bat",
+    "tokio-rs/axum",
+    # ── Ruby / Java ─────────────────────────────────────────────────────────
+    "jekyll/jekyll",
+    "square/okhttp",
+    # ── Observability / DevOps ──────────────────────────────────────────────
+    "docker/compose",
+    "open-telemetry/opentelemetry-python",
+    # ── Large multi-contributor ─────────────────────────────────────────────
     "home-assistant/core",
+    "sqlalchemy/sqlalchemy",
+    # ── Additional Python ───────────────────────────────────────────────────
+    "tiangolo/sqlmodel",
+    "astral-sh/uv",
+    "encode/anyio",
+    "python-attrs/attrs",
+    "pallets/jinja",
+    "pypa/virtualenv",
+    "jazzband/django-debug-toolbar",
+    "redis/redis-py",
+    "encode/databases",
+    "graphene-python/graphene",
+    "strawberry-graphql/strawberry",
+    "simonw/datasette",
+    "httpie/cli",
+    # ── Additional JavaScript / TypeScript ──────────────────────────────────
+    "TanStack/query",
+    "TanStack/router",
+    "pmndrs/zustand",
+    "immerjs/immer",
+    "biomejs/biome",
+    "evanw/esbuild",
+    "radix-ui/primitives",
+    # ── Additional Go ───────────────────────────────────────────────────────
+    "go-chi/chi",
+    "labstack/echo",
+    "go-gorm/gorm",
+    "spf13/cobra",
+    "spf13/viper",
+    "urfave/cli",
+    "kubernetes-sigs/kind",
+    # ── Additional Rust ─────────────────────────────────────────────────────
+    "serde-rs/serde",
+    "clap-rs/clap",
+    "actix/actix-web",
+    "rayon-rs/rayon",
+    # ── Additional Ruby / other ─────────────────────────────────────────────
+    "sinatra/sinatra",
+    "jekyll/jekyll",
+    # ── DevOps / infra ──────────────────────────────────────────────────────
+    "hashicorp/vault",
+    "kubernetes-sigs/kustomize",
+    "argoproj/argo-cd",
 ]
 
 
@@ -108,12 +191,20 @@ def collect(owner_repo):
     r_ci = get_api(f"{BASE}/repos/{owner}/{repo}/contents/.github/workflows")
     has_ci = 1 if (r_ci and r_ci.status_code == 200) else 0
 
-    # ── 4. Root contents (test directory heuristic) ───────────────────────────
-    r_root = get_api(f"{BASE}/repos/{owner}/{repo}/contents")
+    # ── 4. Test file ratio from git tree (accurate count, 1 API call) ───────────
     test_file_ratio = 0.10
-    if r_root and r_root.status_code == 200 and isinstance(r_root.json(), list):
-        names = [f["name"].lower() for f in r_root.json()]
-        test_file_ratio = 0.22 if any("test" in n for n in names) else 0.05
+    r_tree = get_api(f"{BASE}/repos/{owner}/{repo}/git/trees/HEAD",
+                     params={"recursive": "1"})
+    if r_tree and r_tree.status_code == 200:
+        tree_files = [item["path"] for item in r_tree.json().get("tree", [])
+                      if item["type"] == "blob"]
+        if tree_files:
+            total = len(tree_files)
+            test_n = sum(1 for p in tree_files if
+                         "/test" in p.lower() or "/tests" in p.lower() or
+                         "/spec"  in p.lower() or "test_"  in p.lower() or
+                         "_test." in p.lower() or "_spec." in p.lower())
+            test_file_ratio = round(test_n / total, 4)
 
     # ── 5. Commits since 2021 ─────────────────────────────────────────────────
     commits = paginate(f"{BASE}/repos/{owner}/{repo}/commits",
@@ -189,21 +280,32 @@ def collect(owner_repo):
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
-print(f"Collecting {len(REPOS)} repos (since {SINCE[:10]})...")
+csv_out = os.path.join(os.path.dirname(__file__), "github_projects.csv")
+
+# Load existing data — skip repos already collected
+existing_repos = set()
+rows = []
+if os.path.exists(csv_out):
+    existing_df = pd.read_csv(csv_out)
+    rows = existing_df.to_dict("records")
+    existing_repos = set(existing_df["repo"].tolist())
+    print(f"Loaded {len(rows)} existing repos from {csv_out}")
+
+todo = [r for r in REPOS if r not in existing_repos]
+print(f"Collecting {len(todo)} new repos (since {SINCE[:10]})...")
+
 r_check = get_api(f"{BASE}/rate_limit")
 if r_check and r_check.status_code == 200:
     rl = r_check.json()["rate"]
     print(f"Rate limit: {rl['remaining']}/{rl['limit']} remaining, "
           f"resets at {datetime.fromtimestamp(rl['reset']).strftime('%H:%M:%S')}\n")
 
-rows = []
-for repo in REPOS:
+for repo in todo:
     row = collect(repo)
     if row:
         rows.append(row)
-        # Save incrementally
-        pd.DataFrame(rows).to_csv("github_projects.csv", index=False)
-        print(f"  saved ({len(rows)} repos so far)")
+        pd.DataFrame(rows).to_csv(csv_out, index=False)
+        print(f"  saved ({len(rows)} total repos)")
     time.sleep(0.5)
 
 df = pd.DataFrame(rows)

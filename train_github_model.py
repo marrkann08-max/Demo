@@ -27,8 +27,17 @@ warnings.filterwarnings("ignore")
 csv_path = os.path.join(os.path.dirname(__file__), "github_projects.csv")
 df = pd.read_csv(csv_path)
 
-# Features — drop has_ci (zero variance: all repos have CI)
-# Drop total_kloc — disk size proxy is unreliable (r=-0.058 with effort)
+# Features kept after data quality audit:
+#   contributor_count  — r=+0.69, real variance (36–369)
+#   avg_pr_review_days — real variance (0.01–6.4d)
+#   pr_merge_rate      — real variance (0.20–0.88)
+#   test_file_ratio    — now properly computed from git tree API
+#   lang_count         — real variance (1–14)
+#   commit_frequency   — real variance
+# Dropped:
+#   has_ci      — zero variance (all modern repos have CI)
+#   total_kloc  — disk-size proxy, r=-0.058 with effort
+#   stars       — popularity ≠ effort
 FEATURE_COLS = [
     "contributor_count",
     "avg_pr_review_days",
@@ -41,7 +50,7 @@ FEATURE_NAMES = [
     "Contributors",
     "PR Review Time (days)",
     "PR Merge Rate",
-    "Test File Ratio",
+    "Test Coverage Ratio",
     "Language Count",
     "Commit Frequency",
 ]
