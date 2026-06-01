@@ -2,8 +2,8 @@ import streamlit as st
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import numpy as np
+import pickle, os
 
 
 st.markdown("""
@@ -31,6 +31,28 @@ html, body, [class*="css"] { font-family: "Inter", system-ui, sans-serif; }
 </style>
 """, unsafe_allow_html=True)
 
+# ── Load models (for live MMRE figures) ──────────────────────────────────────
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+@st.cache_data(show_spinner=False)
+def _load_pkl(path, mtime):
+    with open(path, "rb") as f:
+        return pickle.load(f)
+
+_cocomo_path = os.path.join(ROOT, "model.pkl")
+_github_path = os.path.join(ROOT, "github_model.pkl")
+_cocomo_art  = _load_pkl(_cocomo_path, os.path.getmtime(_cocomo_path)) if os.path.exists(_cocomo_path) else None
+_github_art  = _load_pkl(_github_path, os.path.getmtime(_github_path)) if os.path.exists(_github_path) else None
+
+_c_mmre   = f"{_cocomo_art['loo_mmre']:.4f}"         if _cocomo_art else "0.3132"
+_c_pred25 = f"{_cocomo_art['pred25']*100:.1f}%"      if _cocomo_art and _cocomo_art.get('pred25') else "47.6%"
+_c_n      = _cocomo_art.get('n_cocomo81', 63)         if _cocomo_art else 63
+_g_mmre_raw   = (_github_art.get('temporal_mmre') or _github_art.get('loo_mmre')) if _github_art else None
+_g_pred25_raw = (_github_art.get('temporal_pred25') or _github_art.get('pred25'))  if _github_art else None
+_g_n      = _github_art.get('n_projects', 91)         if _github_art else 91
+_g_mmre   = f"{_g_mmre_raw:.4f}"                     if _g_mmre_raw   else "0.1760"
+_g_pred25 = f"{_g_pred25_raw*100:.1f}%"              if _g_pred25_raw else "76.9%"
+
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div style='padding-bottom:1.2rem;border-bottom:1px solid #e2e2e2;margin-bottom:1.5rem;'>
@@ -57,20 +79,20 @@ st.markdown("""
 
 # ── MMRE trajectory ───────────────────────────────────────────────────────────
 st.markdown("<div class='section-header'>Expected MMRE Trajectory</div>", unsafe_allow_html=True)
-st.markdown("""<table class='data-table'>
+st.markdown(f"""<table class='data-table'>
   <thead><tr><th>Model</th><th>Training Data</th><th>LOO-MMRE</th><th>PRED(25)</th></tr></thead>
   <tbody>
     <tr>
       <td>COCOMO-81 (academic baseline)</td>
-      <td>63 projects, 1981</td>
-      <td style='font-family:monospace;color:#555;'>0.3132</td>
-      <td style='font-family:monospace;color:#555;'>47.6%</td>
+      <td>{_c_n} projects, 1981</td>
+      <td style='font-family:monospace;color:#555;'>{_c_mmre}</td>
+      <td style='font-family:monospace;color:#555;'>{_c_pred25}</td>
     </tr>
     <tr>
       <td>GitHub open-source (proof of concept)</td>
-      <td>91 repos, 2021–present</td>
-      <td style='font-family:monospace;color:#2563EB;font-weight:600;'>0.1760</td>
-      <td style='font-family:monospace;color:#2563EB;'>76.9%</td>
+      <td>{_g_n} repos, 2021–present</td>
+      <td style='font-family:monospace;color:#2563EB;font-weight:600;'>{_g_mmre}</td>
+      <td style='font-family:monospace;color:#2563EB;'>{_g_pred25}</td>
     </tr>
     <tr style='background:#f0fdf4;'>
       <td><strong>Your company model (Mitacs deliverable)</strong></td>

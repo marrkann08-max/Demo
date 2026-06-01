@@ -1260,7 +1260,7 @@ with ve1:
                 <td style='color:#888;'>—</td></tr>
             <tr><td><strong>SVR with FAHP (this model)</strong></td>
                 <td style='font-family:monospace;color:#2E7D32;font-weight:600;'>{art['loo_mmre']:.4f}</td>
-                <td style='font-family:monospace;color:#2E7D32;font-weight:600;'>{_pred25*100:.0f}%</td></tr>
+                <td style='font-family:monospace;color:#2E7D32;font-weight:600;'>{f"{_pred25*100:.0f}%" if _pred25 else "—"}</td></tr>
           </tbody>
         </table>""", unsafe_allow_html=True)
         st.markdown(f"""<div class='wi-callout' style='margin-top:0.5rem;'>
@@ -1279,10 +1279,10 @@ with ve2:
           <tbody>
             <tr><td>Leave-One-Out CV</td><td>COCOMO-81</td><td>{N_81}</td>
                 <td style='font-family:monospace;font-weight:600;color:#2E7D32;'>{art['loo_mmre']:.4f}</td>
-                <td style='font-family:monospace;'>{_pred25*100:.0f}%</td></tr>
+                <td style='font-family:monospace;'>{f"{_pred25*100:.0f}%" if _pred25 else "—"}</td></tr>
             <tr><td>Out-of-sample test</td><td>NASA-93</td><td>{_n93_n}</td>
                 <td style='font-family:monospace;font-weight:600;color:#BF6000;'>{_n93_mmre:.4f}</td>
-                <td style='font-family:monospace;'>{_n93_pred25*100:.0f}%</td></tr>
+                <td style='font-family:monospace;'>{f"{_n93_pred25*100:.0f}%" if _n93_pred25 else "—"}</td></tr>
           </tbody>
         </table>""", unsafe_allow_html=True)
         st.markdown(f"""<div class='insight-note' style='margin-top:0.5rem;'>
