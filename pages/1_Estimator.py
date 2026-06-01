@@ -992,9 +992,18 @@ background:#f0f7ff;border-radius:4px;border:1px solid #c8dcf5;margin-bottom:1rem
 # ══════════════════════════════════════════════════════════════════════════════
 # RESULTS  (COCOMO-81 estimator — main content)
 # ══════════════════════════════════════════════════════════════════════════════
+ORGANIC_MAX_KLOC = 73  # largest organic project in training set
+
 vec_raw       = inputs_to_raw(loc, ratings, dev_mode)
 effort, vec_w = predict(vec_raw)
 eaf = float(np.prod([COCOMO_MULT[f][RATING_MAP[ratings[f]]] for f in COCOMO_MULT]))
+
+if dev_mode == "Organic" and loc > ORGANIC_MAX_KLOC:
+    st.warning(
+        f"Largest Organic project in training data is {ORGANIC_MAX_KLOC} KLOC. "
+        f"At {loc} KLOC the model is extrapolating — treat this estimate as unreliable. "
+        f"Semi-detached or Embedded mode is more appropriate at this size."
+    )
 cal_months    = 2.5 * (effort ** 0.38)
 team_size     = max(1, round(effort / cal_months))
 pi_lo_abs     = max(1.0, effort * (1 + PI_LO))
