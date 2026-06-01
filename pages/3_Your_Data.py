@@ -388,7 +388,7 @@ timeline = [
     ("2", "Month 3", "Model Training & Validation",
      "Apply FAHP weighting to your feature set. Train weighted-kernel SVR. LOO cross-validation to tune hyperparameters. SHAP integration for per-project explanations."),
     ("3", "Month 4", "Deployment & Handoff",
-     "Deploy as a live Streamlit dashboard. What-if analysis configured to your team's levers. Documentation and handoff so your team can maintain and extend it."),
+     "Deploy as a live interactive dashboard on your internal infrastructure. What-if analysis configured to your team's levers. Documentation and handoff so your team can maintain and extend it — no sensitive data leaves your environment."),
 ]
 
 for idx, (num, month, title, desc) in enumerate(timeline):
