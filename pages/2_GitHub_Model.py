@@ -99,8 +99,11 @@ with c2:
         help="Average commits per week over the project window")
 
 # ── Predict ───────────────────────────────────────────────────────────────────
+# Interaction term: large fast-moving teams are a distinct signal
+gh_contributors_x_freq = gh_contributors * gh_commit_freq
 x_raw = np.array([[gh_contributors, gh_review_days, gh_merge_rate,
-                   gh_test_ratio, gh_lang_count, gh_commit_freq]], dtype=float)
+                   gh_test_ratio, gh_lang_count, gh_commit_freq,
+                   gh_contributors_x_freq]], dtype=float)
 x_log = np.log(np.clip(x_raw, 1e-3, None))
 x_sc  = gh_scaler_X.transform(x_log)
 x_w   = x_sc * gh_kernel_w
@@ -112,7 +115,7 @@ hi     = effort * (1 + gh_pi_hi)
 
 # ── Results ───────────────────────────────────────────────────────────────────
 st.markdown("<div class='section-header'>Prediction</div>", unsafe_allow_html=True)
-r1, r2, r3, r4 = st.columns(4)
+r1, r2, r3, r4, r5 = st.columns(5)
 r1.markdown(f"""<div class='metric-card'>
     <div class='metric-label'>Predicted Effort</div>
     <div class='metric-value'>{effort:.0f}</div>
@@ -121,17 +124,28 @@ r1.markdown(f"""<div class='metric-card'>
 </div>""", unsafe_allow_html=True)
 r2.markdown(f"""<div class='metric-card'>
     <div class='metric-label'>LOO-MMRE</div>
-    <div class='metric-value' style='color:#2563EB;'>{art['loo_mmre']:.4f}</div>
+    <div class='metric-value' style='color:#2563EB;font-size:1.8rem;'>{art['loo_mmre']:.4f}</div>
     <div class='metric-unit'>leave-one-out CV</div>
     <div class='metric-range'>PRED(25) = {art['pred25']*100:.0f}%</div>
 </div>""", unsafe_allow_html=True)
+
+_t_mmre   = art.get("temporal_mmre", None)
+_t_pred25 = art.get("temporal_pred25", None)
+_t_tr     = art.get("temporal_train_n", "—")
+_t_te     = art.get("temporal_test_n", "—")
 r3.markdown(f"""<div class='metric-card'>
+    <div class='metric-label'>Temporal MMRE</div>
+    <div class='metric-value' style='color:#15803d;font-size:1.8rem;'>{_t_mmre:.4f if _t_mmre else "—"}</div>
+    <div class='metric-unit'>train old → test new</div>
+    <div class='metric-range'>PRED(25) = {f"{_t_pred25*100:.0f}%" if _t_pred25 else "—"} · n_test={_t_te}</div>
+</div>""", unsafe_allow_html=True)
+r4.markdown(f"""<div class='metric-card'>
     <div class='metric-label'>FAHP Improvement</div>
-    <div class='metric-value' style='color:#15803d;font-size:1.8rem;'>{art['fahp_improve_pct']:.0f}%</div>
+    <div class='metric-value' style='color:#7c3aed;font-size:1.8rem;'>{art['fahp_improve_pct']:.0f}%</div>
     <div class='metric-unit'>vs no FAHP weighting</div>
     <div class='metric-range'>Ablation: {art['ablation_mmre']:.4f} → {art['loo_mmre']:.4f}</div>
 </div>""", unsafe_allow_html=True)
-r4.markdown(f"""<div class='metric-card'>
+r5.markdown(f"""<div class='metric-card'>
     <div class='metric-label'>Training Repos</div>
     <div class='metric-value' style='font-size:1.8rem;'>{art['n_projects']}</div>
     <div class='metric-unit'>open-source projects</div>

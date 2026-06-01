@@ -959,7 +959,16 @@ _gh_pred25 = gh_art["pred25"]     if gh_art else None
 _gh_n      = gh_art["n_projects"] if gh_art else None
 
 cocomo_row = f"<tr><td><strong>COCOMO-81</strong> (1981 benchmark)</td><td>63</td><td style='font-family:monospace;font-weight:700;color:#2E7D32;'>{art['loo_mmre']:.4f}</td><td style='font-family:monospace;'>{_pred25*100:.0f}%</td><td>LOO cross-validation</td></tr>" if _pred25 else ""
-github_row = f"<tr><td><strong>GitHub open-source</strong> (2021–present)</td><td>{_gh_n}</td><td style='font-family:monospace;font-weight:700;color:#2563EB;'>{_gh_mmre:.4f}</td><td style='font-family:monospace;'>{_gh_pred25*100:.0f}%</td><td>LOO cross-validation</td></tr>" if _gh_mmre else ""
+_gh_t_mmre   = gh_art.get("temporal_mmre",   None) if gh_art else None
+_gh_t_pred25 = gh_art.get("temporal_pred25", None) if gh_art else None
+_gh_disp_mmre   = f"{_gh_t_mmre:.4f}"   if _gh_t_mmre   else (f"{_gh_mmre:.4f}"   if _gh_mmre   else "—")
+_gh_disp_pred25 = f"{_gh_t_pred25*100:.0f}%" if _gh_t_pred25 else (f"{_gh_pred25*100:.0f}%" if _gh_pred25 else "—")
+_gh_val_label   = "Temporal split (rigorous)" if _gh_t_mmre else "LOO cross-validation"
+github_row = (f"<tr><td><strong>GitHub open-source</strong> (2021&#8211;present)</td>"
+              f"<td>{_gh_n}</td>"
+              f"<td style='font-family:monospace;font-weight:700;color:#2563EB;'>{_gh_disp_mmre}</td>"
+              f"<td style='font-family:monospace;'>{_gh_disp_pred25}</td>"
+              f"<td>{_gh_val_label}</td></tr>") if _gh_mmre else ""
 company_row = "<tr><td><strong>Your company data</strong></td><td>—</td><td style='font-family:monospace;color:#BF6000;font-weight:700;'>lower ↓</td><td style='font-family:monospace;color:#BF6000;'>higher ↑</td><td>The Mitacs deliverable</td></tr>"
 
 st.markdown(f"""

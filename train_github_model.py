@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────────────────
 # 0.  DATA
 # ─────────────────────────────────────────────────────────────────────────────
-csv_path = os.path.join(os.path.dirname(__file__), "github_projects.csv")
+csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "github_projects.csv")
 df = pd.read_csv(csv_path)
 
 # Features kept after data quality audit:
@@ -45,6 +45,7 @@ FEATURE_COLS = [
     "test_file_ratio",
     "lang_count",
     "commit_frequency",
+    "contributors_x_freq",   # interaction: large fast-moving teams
 ]
 FEATURE_NAMES = [
     "Contributors",
@@ -53,11 +54,17 @@ FEATURE_NAMES = [
     "Test Coverage Ratio",
     "Language Count",
     "Commit Frequency",
+    "Contributors x Frequency",
 ]
 TARGET = "author_months"
 
-df_clean = df[FEATURE_COLS + [TARGET, "repo"]].dropna()
-df_clean = df_clean[(df_clean[FEATURE_COLS] > 0).all(axis=1)]
+df_work = df.copy()
+df_work["contributors_x_freq"] = df_work["contributor_count"] * df_work["commit_frequency"]
+
+base_cols = ["contributor_count","avg_pr_review_days","pr_merge_rate",
+             "test_file_ratio","lang_count","commit_frequency","contributors_x_freq"]
+df_clean = df_work[base_cols + [TARGET, "repo", "stars"]].dropna()
+df_clean = df_clean[(df_clean[base_cols] > 0).all(axis=1)]
 df_clean = df_clean[df_clean[TARGET] > 0]
 
 X_raw  = df_clean[FEATURE_COLS].values.astype(float)
@@ -242,6 +249,48 @@ worst = np.argsort(loo_abs)[::-1][:5]
 for i in worst:
     print(f"  {repos[i]:>35s}: RE={loo_sre[i]:+.2%}  actual={y_raw[i]:.1f} PM")
 
+# ── Temporal split validation ──────────────────────────────────────────────────
+# Stars used as repo maturity proxy: high-star = older/established (train),
+# low-star = newer repos (test). Mimics real deployment: train on known history,
+# predict future projects.
+print("\n-- Temporal split (stars as maturity proxy, 70/30) --")
+df_sorted = df_clean.sort_values("stars", ascending=False).reset_index(drop=True)
+split_n   = int(len(df_sorted) * 0.70)
+df_tr     = df_sorted.iloc[:split_n]
+df_te     = df_sorted.iloc[split_n:]
+
+X_tr = df_tr[FEATURE_COLS].values.astype(float)
+y_tr = df_tr[TARGET].values.astype(float)
+X_te = df_te[FEATURE_COLS].values.astype(float)
+y_te = df_te[TARGET].values.astype(float)
+
+# Fit everything on training split only — no leakage
+X_log_tr  = np.log(np.clip(X_tr, 1e-3, None))
+scX_t     = MinMaxScaler()
+scY_t     = MinMaxScaler()
+X_sc_tr   = scX_t.fit_transform(X_log_tr)
+y_sc_tr   = scY_t.fit_transform(np.log1p(y_tr).reshape(-1, 1)).ravel()
+
+fc_t  = np.array([abs(spearmanr(X_tr[:, i], y_tr).correlation) for i in range(len(FEATURE_COLS))])
+fc_t  = np.clip(fc_t, 0.01, None)
+kw_t  = np.sqrt(fc_t / fc_t.sum())
+Xw_tr = X_sc_tr * kw_t
+
+svr_t = SVR(kernel="rbf", C=best_C, gamma=best_g, epsilon=best_e)
+svr_t.fit(Xw_tr, y_sc_tr)
+
+X_log_te  = np.log(np.clip(X_te, 1e-3, None))
+Xw_te     = scX_t.transform(X_log_te) * kw_t
+p_te      = np.expm1(scY_t.inverse_transform(svr_t.predict(Xw_te).reshape(-1, 1)).ravel())
+te_re     = np.abs(y_te - p_te) / y_te
+temporal_mmre   = float(np.mean(te_re))
+temporal_pred25 = float(np.mean(te_re <= 0.25))
+
+print(f"  Train: {split_n} established repos (high-star)  |  "
+      f"Test: {len(df_te)} newer repos (low-star)")
+print(f"  Temporal MMRE={temporal_mmre:.4f}  PRED(25)={temporal_pred25*100:.1f}%")
+print(f"  (LOO-MMRE={best_mmre:.4f} for comparison — LOO is optimistic, temporal is rigorous)")
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 5.  FINAL MODEL
 # ─────────────────────────────────────────────────────────────────────────────
@@ -272,16 +321,20 @@ artifacts = {
     "pred50":         round(pred50, 4),
     "pi_lo_pct":      pi_lo,
     "pi_hi_pct":      pi_hi,
-    "ablation_mmre":  round(abl_mmre, 4),
+    "ablation_mmre":    round(abl_mmre, 4),
     "fahp_improve_pct": round(fahp_imp, 1),
-    "naive_mmre":     round(naive_mmre, 4),
+    "naive_mmre":       round(naive_mmre, 4),
+    "temporal_mmre":    round(temporal_mmre, 4),
+    "temporal_pred25":  round(temporal_pred25, 4),
+    "temporal_train_n": split_n,
+    "temporal_test_n":  len(df_te),
     "best_C":         round(float(best_C), 6),
     "best_gamma":     best_g if isinstance(best_g, str) else round(float(best_g), 6),
     "best_epsilon":   round(float(best_e), 6),
     "n_projects":     n,
 }
 
-out = os.path.join(os.path.dirname(__file__), "github_model.pkl")
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "github_model.pkl")
 with open(out, "wb") as f:
     pickle.dump(artifacts, f)
 
