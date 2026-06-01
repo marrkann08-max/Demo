@@ -379,9 +379,9 @@ st.markdown("<div class='section-header'>Mitacs Accelerate Timeline</div>", unsa
 timeline = [
     ("1", "Month 1–2", "Data Collection",
      "Extract completed project records from Jira + GitHub. Define effort ground truth (actual person-hours billed). Feature engineering to map your workflow signals to model inputs."),
-    ("2", "Month 3–4", "Model Training & Validation",
+    ("2", "Month 3", "Model Training & Validation",
      "Apply FAHP weighting to your feature set. Train weighted-kernel SVR. LOO cross-validation to tune hyperparameters. SHAP integration for per-project explanations."),
-    ("3", "Month 5–6", "Deployment & Handoff",
+    ("3", "Month 4", "Deployment & Handoff",
      "Deploy as a live Streamlit dashboard. What-if analysis configured to your team's levers. Documentation and handoff so your team can maintain and extend it."),
 ]
 
@@ -408,17 +408,17 @@ cc1, cc2, cc3 = st.columns(3)
 cc1.markdown("""<div class='cost-card' style='border-top:3px solid #2563EB;'>
     <div class='cost-label'>Industry Partner</div>
     <div class='cost-amount' style='color:#2563EB;'>$7,500</div>
-    <div class='cost-desc'>4–6 months of focused research + development</div>
+    <div class='cost-desc'>4 months of focused research + development</div>
 </div>""", unsafe_allow_html=True)
 cc2.markdown("""<div class='cost-card' style='border-top:3px solid #7C3AED;'>
     <div class='cost-label'>Mitacs (federal funding)</div>
-    <div class='cost-amount' style='color:#7C3AED;'>$15,000</div>
-    <div class='cost-desc'>Matched 2× — Mitacs contributes double the industry share</div>
+    <div class='cost-amount' style='color:#7C3AED;'>$7,500</div>
+    <div class='cost-desc'>Matched 1:1 — equal federal and industry contribution</div>
 </div>""", unsafe_allow_html=True)
 cc3.markdown("""<div class='cost-card' style='border-top:3px solid #15803D;background:#f0fdf4;'>
     <div class='cost-label'>Total Research Value</div>
-    <div class='cost-amount' style='color:#15803D;'>$22,500</div>
-    <div class='cost-desc'>Custom AI tool at 1/3 the cost of a typical engagement</div>
+    <div class='cost-amount' style='color:#15803D;'>$15,000</div>
+    <div class='cost-desc'>Custom AI estimation tool delivered in 4 months</div>
 </div>""", unsafe_allow_html=True)
 
 st.markdown("""<div class='wi-callout' style='margin-top:1rem;'>
