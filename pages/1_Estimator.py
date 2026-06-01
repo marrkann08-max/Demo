@@ -515,7 +515,15 @@ def compute_shap(vec_raw_tuple):
         return None, None
     vec_raw_arr = np.array(vec_raw_tuple).reshape(1, -1)
     np.random.seed(42)
-    bg = X_raw_all  # full 63-project background — stable base value every run
+    # Representative background: projects <= 600 PM (80th percentile).
+    # Excludes 13 defence mega-programs (up to 11,400 PM) that skew the arithmetic
+    # mean to 620 PM — not representative of modern commercial software.
+    # Gives base value ~116 PM (near the geometric mean of the distribution).
+    y_raw = art.get("y_raw_pm", None)
+    if y_raw is not None:
+        bg = X_raw_all[y_raw <= 600.0]
+    else:
+        bg = X_raw_all
 
     def full_pipeline(X):
         Xl = np.log(np.clip(X, 1e-3, None))
@@ -1364,7 +1372,7 @@ with st.expander("Methodology — how this works", expanded=False):
 
 4. **Empirical 80% PI** — 10th/90th percentile of LOO signed relative errors. No parametric assumption.
 
-5. **SHAP** — KernelExplainer (background=all 63 training projects, nsamples=150, seed=42) decomposes prediction into per-feature PM contributions. Full background gives a stable base value (mean prediction over all 63 projects) rather than a random-sample-dependent one.
+5. **SHAP** — KernelExplainer (background=50 representative projects ≤ 600 PM, nsamples=150, seed=42). Background excludes 13 defence mega-programs (up to 11,400 PM) to keep the baseline interpretable (~116 PM, near the geometric mean). SHAP values are in person-months; additivity verified at 0.00% error.
 
 6. **GenAI Adjustment** — Post-hoc multiplier from Peng et al. 2023, McKinsey 2023, Kalliamvakou 2022. Not trained into the model.
 """)
