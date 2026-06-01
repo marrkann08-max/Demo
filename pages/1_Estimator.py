@@ -563,7 +563,7 @@ def classify_risk(effort, eaf, loc):
 # ── Executive summary ─────────────────────────────────────────────────────────
 def executive_summary(effort, cal_months, team_size, eaf, loc, top_driver, top_saver, risk_label,
                       ai_effort=None, ai_cal=None, ai_team=None, ai_pct=None, ai_short=None):
-    size_str      = ("small" if loc < 10 else "medium-sized" if loc < 50 else "large")
+    size_str      = ("small" if loc < 15 else "medium-sized" if loc < 100 else "large")
     effort_context = ("straightforward" if effort < 50 else "moderate" if effort < 200 else "substantial")
     lines = [
         f"This {size_str} project ({loc:.0f} KLOC) is estimated to require "
@@ -1215,6 +1215,10 @@ if wi_results:
         <strong>Top recommendation:</strong> {b['action']}
         &nbsp;&middot;&nbsp; {b['feature']}: {b['from_']} &rarr; {b['to']}
         &nbsp;&middot;&nbsp; saves <strong>{b['saving']:.0f} PM ({b['pct']:.1f}%)</strong>
+        <br><span style='font-size:0.78rem;opacity:0.8;'>
+        Savings are relative to the COCOMO-81 training baseline (1980s defence/aerospace teams).
+        A Nominal-rated driver may still appear as a cost driver if the training average was higher.
+        </span>
     </div>""", unsafe_allow_html=True)
 else:
     st.info("No improvement opportunities — already at optimal settings.")
