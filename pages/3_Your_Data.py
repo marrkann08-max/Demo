@@ -25,6 +25,9 @@ section[data-testid="stSidebar"] {
     border-right: 1px solid #1E1E1E !important;
 }
 section[data-testid="stSidebar"] > div { background: #0F0F0F !important; }
+section[data-testid="stSidebar"] * { color: #CCCCCC !important; }
+section[data-testid="stSidebar"] [data-testid="stSidebarNavItems"] a p { color: #AAAAAA !important; }
+section[data-testid="stSidebar"] [aria-selected="true"] p { color: #FFFFFF !important; }
 
 .page-header {
     margin-bottom: 1.75rem; padding-bottom: 1.25rem; border-bottom: 1px solid #E2E2E2;
