@@ -138,7 +138,7 @@ _t_tr     = art.get("temporal_train_n", "—")
 _t_te     = art.get("temporal_test_n", "—")
 r3.markdown(f"""<div class='metric-card'>
     <div class='metric-label'>Temporal MMRE</div>
-    <div class='metric-value' style='color:#15803d;font-size:1.8rem;'>{_t_mmre:.4f if _t_mmre else "—"}</div>
+    <div class='metric-value' style='color:#15803d;font-size:1.8rem;'>{f"{_t_mmre:.4f}" if _t_mmre else "—"}</div>
     <div class='metric-unit'>train old → test new</div>
     <div class='metric-range'>PRED(25) = {f"{_t_pred25*100:.0f}%" if _t_pred25 else "—"} · n_test={_t_te}</div>
 </div>""", unsafe_allow_html=True)
