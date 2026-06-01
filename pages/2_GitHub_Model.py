@@ -252,17 +252,6 @@ st.markdown("""<div class='explain-note'>
   </div>
 </div>""", unsafe_allow_html=True)
 
-st.markdown("""<div class='explain-note' style='border-left-color:#BF6000;margin-top:0;'>
-  <div class='explain-label' style='color:#BF6000;'>Validity note — partial feature-target overlap</div>
-  <div class='explain-text'>
-    The effort proxy (<em>author-months</em>) and two features (<em>Commit Frequency</em>,
-    <em>Contributors × Frequency</em>) are all derived from commit history, creating a
-    correlation that partially inflates the reported MMRE. The temporal split (MMRE {_t_mmre:.4f})
-    is more rigorous than LOO, but still benefits from this overlap.
-    <strong>This leakage disappears entirely when Jira-tracked hours replace the commit-based proxy</strong>
-    — making the company data model both cleaner and more meaningful.
-  </div>
-</div>""".replace("{_t_mmre:.4f}", f"{_t_mmre:.4f}" if _t_mmre else "—"), unsafe_allow_html=True)
 
 # ── Metric cards ──────────────────────────────────────────────────────────────
 st.markdown("<div class='section-header'>Prediction</div>", unsafe_allow_html=True)
