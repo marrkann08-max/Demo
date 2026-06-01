@@ -296,8 +296,8 @@ bars = ax1.bar(tools, savings, color=colors, width=0.55, edgecolor="none", alpha
 ax1.errorbar(range(len(tools)), savings, yerr=[lo_err, hi_err],
              fmt="none", color="#374151", capsize=5, linewidth=1.2, capthick=1.2)
 ax1.axhline(17, color="#ef4444", linewidth=1.2, linestyle="--", alpha=0.7, label="COCOMO TOOL ceiling (17%)")
-for bar, val in zip(bars, savings):
-    ax1.text(bar.get_x() + bar.get_width()/2, val + 1.5, f"{val}%",
+for bar, val, hi in zip(bars, savings, hi_err):
+    ax1.text(bar.get_x() + bar.get_width()/2, val + hi + 2, f"{val}%",
              ha="center", va="bottom", fontsize=9, fontweight="600",
              fontfamily="monospace", color="#111")
 ax1.set_ylabel("Effort reduction (%)", fontsize=8.5, color="#6b7280")
