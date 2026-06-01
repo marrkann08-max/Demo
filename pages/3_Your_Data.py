@@ -135,8 +135,8 @@ _github_art  = _load_pkl(_github_path, os.path.getmtime(_github_path)) if os.pat
 _c_mmre   = f"{_cocomo_art['loo_mmre']:.4f}"            if _cocomo_art else "0.3132"
 _c_pred25 = f"{_cocomo_art['pred25']*100:.1f}%"         if _cocomo_art and _cocomo_art.get('pred25') else "47.6%"
 _c_n      = _cocomo_art.get('n_cocomo81', 63)            if _cocomo_art else 63
-_g_mmre_r   = (_github_art.get('temporal_mmre') or _github_art.get('loo_mmre')) if _github_art else None
-_g_pred25_r = (_github_art.get('temporal_pred25') or _github_art.get('pred25')) if _github_art else None
+_g_mmre_r   = _github_art.get('loo_mmre')   if _github_art else None
+_g_pred25_r = _github_art.get('pred25')    if _github_art else None
 _g_n      = _github_art.get('n_projects', 91)            if _github_art else 91
 _g_mmre   = f"{_g_mmre_r:.4f}"                          if _g_mmre_r   else "0.1760"
 _g_pred25 = f"{_g_pred25_r*100:.1f}%"                   if _g_pred25_r else "76.9%"
@@ -186,8 +186,8 @@ st.markdown(f"""<table class='data-table'>
     <tr style='background:#f0fdf4;'>
       <td><strong>Your company model (Mitacs deliverable)</strong></td>
       <td>Your completed projects + Jira hours</td>
-      <td style='font-family:monospace;color:#15803d;font-weight:700;'>&lt; 0.15 projected</td>
-      <td style='font-family:monospace;color:#15803d;font-weight:700;'>&gt; 85% projected</td>
+      <td style='font-family:monospace;color:#15803d;font-weight:700;'>&lt; 0.15 (aspirational target — depends on data quality)</td>
+      <td style='font-family:monospace;color:#15803d;font-weight:700;'>&gt; 85% (aspirational target)</td>
     </tr>
   </tbody>
 </table>""", unsafe_allow_html=True)
@@ -277,7 +277,7 @@ border-radius:0 8px 8px 0;padding:0.9rem 1.1rem;margin-bottom:1rem;'>
   <div style='font-size:0.85rem;color:#222;line-height:1.8;'>
     COCOMO-81's TOOL driver assumes the best tools save at most <strong>17% effort</strong>.
     GitHub Copilot was released in 2022. Cursor, Claude Code, and Devin followed.
-    Multiple peer-reviewed studies now show <strong>22–55% productivity gains</strong>.
+    Published studies and industry surveys now show <strong>22–55% productivity gains</strong>.
     No existing effort estimation model accounts for this.
     <strong>That's the Mitacs research contribution.</strong>
   </div>
@@ -341,7 +341,7 @@ st.markdown("""<table class='data-table' style='margin-top:0.8rem;'>
     <tr>
       <td><strong>Peng et al. (2023)</strong> — GitHub</td>
       <td>95 developers, controlled</td>
-      <td>Copilot users completed tasks 55% faster on isolated tasks, 26% on full projects</td>
+      <td>Copilot users completed an isolated coding task 55% faster (controlled experiment) — full-project gain not measured</td>
       <td style='font-family:monospace;font-weight:600;color:#15803d;'>+22–55%</td>
     </tr>
     <tr>

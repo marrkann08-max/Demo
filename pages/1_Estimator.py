@@ -1237,7 +1237,7 @@ if ai_using:
     st.markdown(f"""<div class='explain-note' style='margin-top:0.8rem;'>
         <div class='explain-label'>Source</div>
         <div class='explain-text'>
-            Productivity multipliers derived from peer-reviewed research: <strong>{source_text}</strong>.
+            Productivity multipliers derived from published studies and industry surveys: <strong>{source_text}</strong>.
             COCOMO-81's TOOL driver caps out at 17% effort reduction; modern AI coding tools
             measurably exceed this — quantifying that gap is the novel contribution of this work.
         </div>
