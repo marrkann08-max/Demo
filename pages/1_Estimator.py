@@ -514,7 +514,8 @@ def compute_shap(vec_raw_tuple):
     if X_raw_all is None:
         return None, None
     vec_raw_arr = np.array(vec_raw_tuple).reshape(1, -1)
-    bg = shap.sample(X_raw_all, min(30, len(X_raw_all)))
+    np.random.seed(42)
+    bg = X_raw_all  # full 63-project background — stable base value every run
 
     def full_pipeline(X):
         Xl = np.log(np.clip(X, 1e-3, None))
@@ -1363,7 +1364,7 @@ with st.expander("Methodology — how this works", expanded=False):
 
 4. **Empirical 80% PI** — 10th/90th percentile of LOO signed relative errors. No parametric assumption.
 
-5. **SHAP** — KernelExplainer (background=30, nsamples=150) decomposes prediction into per-feature PM contributions.
+5. **SHAP** — KernelExplainer (background=all 63 training projects, nsamples=150, seed=42) decomposes prediction into per-feature PM contributions. Full background gives a stable base value (mean prediction over all 63 projects) rather than a random-sample-dependent one.
 
 6. **GenAI Adjustment** — Post-hoc multiplier from Peng et al. 2023, McKinsey 2023, Kalliamvakou 2022. Not trained into the model.
 """)
