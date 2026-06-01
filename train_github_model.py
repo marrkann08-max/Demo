@@ -46,6 +46,7 @@ FEATURE_COLS = [
     "lang_count",
     "commit_frequency",
     "contributors_x_freq",   # interaction: large fast-moving teams
+    "ai_tools_count",        # AI coding tool adoption (Copilot, Cursor, Claude…)
 ]
 FEATURE_NAMES = [
     "Contributors",
@@ -55,16 +56,24 @@ FEATURE_NAMES = [
     "Language Count",
     "Commit Frequency",
     "Contributors x Frequency",
+    "AI Tool Adoption",
 ]
 TARGET = "author_months"
 
 df_work = df.copy()
 df_work["contributors_x_freq"] = df_work["contributor_count"] * df_work["commit_frequency"]
+# ai_tools_count: 0 if column missing (older CSV without patch)
+if "ai_tools_count" not in df_work.columns:
+    df_work["ai_tools_count"] = 0
+else:
+    df_work["ai_tools_count"] = df_work["ai_tools_count"].fillna(0)
 
 base_cols = ["contributor_count","avg_pr_review_days","pr_merge_rate",
-             "test_file_ratio","lang_count","commit_frequency","contributors_x_freq"]
+             "test_file_ratio","lang_count","commit_frequency",
+             "contributors_x_freq","ai_tools_count"]
 df_clean = df_work[base_cols + [TARGET, "repo", "stars"]].dropna()
-df_clean = df_clean[(df_clean[base_cols] > 0).all(axis=1)]
+df_clean = df_clean[(df_clean[["contributor_count","avg_pr_review_days","pr_merge_rate",
+                                "test_file_ratio","lang_count","commit_frequency"]] > 0).all(axis=1)]
 df_clean = df_clean[df_clean[TARGET] > 0]
 
 X_raw  = df_clean[FEATURE_COLS].values.astype(float)

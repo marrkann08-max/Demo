@@ -97,13 +97,16 @@ with c2:
         help="Number of programming languages in the repo")
     gh_commit_freq  = st.slider("Commit frequency (per week)", 0.5, 150.0, 10.0, 0.5,
         help="Average commits per week over the project window")
+    gh_ai_tools     = st.selectbox("AI coding tools adopted", [0, 1, 2, 3], index=0,
+        format_func=lambda x: {0:"None", 1:"1 tool (e.g. Copilot)", 2:"2 tools (e.g. Copilot + Claude)", 3:"3 tools (fully AI-first)"}[x],
+        help="Number of distinct AI coding tools configured: Copilot, Cursor, Claude Code, Agents, etc.")
 
 # ── Predict ───────────────────────────────────────────────────────────────────
-# Interaction term: large fast-moving teams are a distinct signal
+# Derived features (not separate sliders)
 gh_contributors_x_freq = gh_contributors * gh_commit_freq
 x_raw = np.array([[gh_contributors, gh_review_days, gh_merge_rate,
                    gh_test_ratio, gh_lang_count, gh_commit_freq,
-                   gh_contributors_x_freq]], dtype=float)
+                   gh_contributors_x_freq, gh_ai_tools]], dtype=float)
 x_log = np.log(np.clip(x_raw, 1e-3, None))
 x_sc  = gh_scaler_X.transform(x_log)
 x_w   = x_sc * gh_kernel_w
