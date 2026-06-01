@@ -356,18 +356,22 @@ st.markdown("""<div class='explain-note' style='margin-top:0.5rem;'>
   </div>
 </div>""", unsafe_allow_html=True)
 
-st.markdown("<div class='section-header'>Validity — Is the Low MMRE Genuine?</div>", unsafe_allow_html=True)
-st.markdown(f"""<div class='explain-note' style='border-left-color:#2563EB;'>
-  <div class='explain-label' style='color:#2563EB;'>Transparency check — feature vs target overlap</div>
+st.markdown("<div class='section-header'>Validity — Transparency on Feature/Target Overlap</div>", unsafe_allow_html=True)
+st.markdown(f"""<div class='explain-note' style='border-left-color:#BF6000;'>
+  <div class='explain-label' style='color:#BF6000;'>Construct overlap — read before citing the MMRE</div>
   <div class='explain-text'>
-    Since both <em>Commit Frequency</em> and the effort proxy (<em>author-months</em>) derive from commit history,
-    one could suspect the low MMRE reflects data leakage rather than genuine predictive power.
-    We checked: the Spearman correlation between <em>commit_frequency</em> and <em>author_months</em>
-    across all {art['n_projects']} projects is <strong>r = 0.04</strong> — effectively zero.
+    <strong>contributor_count</strong> has Spearman r = 0.70 with the effort proxy (author_months),
+    and the interaction term r = 0.65, because all three derive from the same commit-activity log.
+    This is <strong>construct overlap, not train/test leakage</strong>: author_months deduplicates to
+    unique person-days and divides by 20, so it is strongly related to — but not a deterministic
+    function of — contributor count. A 50-person team each committing once total has very different
+    author_months than 50 people each active for months.
     <br><br>
-    They measure fundamentally different things: <em>author-months</em> counts unique person-days of work
-    (deduplicated per contributor per day); <em>commit_frequency</em> counts total commits per week.
-    A single developer committing 50 times a day still contributes 1 author-day.
-    <strong>No meaningful leakage exists.</strong> The low MMRE reflects genuine signal in the features.
+    The low MMRE therefore reflects a genuine team-size → effort signal that cannot be cleanly
+    separated from shared measurement source. Jira-tracked hours as an independent ground truth
+    would remove the overlap and give a clean accuracy figure.
+    <br><br>
+    <em>An earlier version of this note reported r = 0.04; that was computed with Pearson, not the
+    Spearman used everywhere else in the model. Corrected.</em>
   </div>
 </div>""", unsafe_allow_html=True)
