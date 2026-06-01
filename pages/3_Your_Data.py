@@ -315,12 +315,15 @@ adoption = [8, 22, 45, 65, 78]
 ax2.fill_between(years, adoption, alpha=0.15, color="#7c3aed")
 ax2.plot(years, adoption, color="#7c3aed", linewidth=2.2, marker="o", markersize=6)
 for x, y in zip(years, adoption):
-    ax2.text(x, y + 2.5, f"{y}%", ha="center", fontsize=8.5,
+    ha = "right" if x == 2025 else "center"
+    xoff = -0.05 if x == 2025 else 0
+    ax2.text(x + xoff, y + 3, f"{y}%", ha=ha, fontsize=8.5,
              fontfamily="monospace", color="#5b21b6", fontweight="600")
 ax2.axvline(2022.5, color="#ef4444", linewidth=1, linestyle=":", alpha=0.6)
 ax2.text(2022.6, 15, "Copilot\nGA", fontsize=7.5, color="#ef4444", va="bottom")
 ax2.set_title("AI Coding Tool Adoption (% developers)", fontsize=9.5, fontweight="600", color="#111", pad=10)
 ax2.set_ylabel("Developers using AI tools (%)", fontsize=8.5, color="#6b7280")
+ax2.set_xlim(2020.7, 2025.4)
 ax2.set_ylim(0, 95)
 ax2.set_facecolor("#fafafa")
 for sp in ["top", "right", "left"]: ax2.spines[sp].set_visible(False)
