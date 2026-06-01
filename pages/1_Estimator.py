@@ -6,6 +6,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pickle, os, warnings
+
+# Root directory — pages/ is one level below the repo root
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 try:
     import shap
     SHAP_AVAILABLE = True
@@ -389,11 +392,11 @@ if st.session_state.get("dark_mode", False):
 # Cache key includes file mtime → cache auto-busts whenever model.pkl is retrained
 @st.cache_data(show_spinner=False)
 def load_model(mtime: float):
-    path = os.path.join(os.path.dirname(__file__), "model.pkl")
+    path = os.path.join(ROOT, "model.pkl")
     with open(path, "rb") as f:
         return pickle.load(f)
 
-_model_path = os.path.join(os.path.dirname(__file__), "model.pkl")
+_model_path = os.path.join(ROOT, "model.pkl")
 if not os.path.exists(_model_path):
     st.error(
         "**model.pkl not found.** Run `python train_model.py` to generate it, "
@@ -421,13 +424,13 @@ N_93     = art.get("n_nasa93",   0)
 # ── Load GitHub model (optional) ──────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def load_github_model(mtime: float):
-    path = os.path.join(os.path.dirname(__file__), "github_model.pkl")
+    path = os.path.join(ROOT, "github_model.pkl")
     with open(path, "rb") as f:
         return pickle.load(f)
 
-_gh_path = os.path.join(os.path.dirname(__file__), "github_model.pkl")
+_gh_path = os.path.join(ROOT, "github_model.pkl")
 gh_art   = load_github_model(os.path.getmtime(_gh_path)) if os.path.exists(_gh_path) else None
-_gh_csv_path = os.path.join(os.path.dirname(__file__), "github_projects.csv")
+_gh_csv_path = os.path.join(ROOT, "github_projects.csv")
 
 FEATURES = [
     "LOC (KLOC)", "RELY", "DATA", "CPLX", "TIME", "STOR",
